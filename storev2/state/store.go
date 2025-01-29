@@ -12,7 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/store/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/kv"
-	sstypes "github.com/sei-protocol/sei-db/ss/types"
+	sstypes "github.com/eni-chain/eni-db/ss/types"
 	abci "github.com/tendermint/tendermint/abci/types"
 )
 

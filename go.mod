@@ -1,4 +1,4 @@
-go 1.21
+go 1.22
 
 module github.com/cosmos/cosmos-sdk
 
@@ -15,6 +15,8 @@ require (
 	github.com/cosmos/iavl v0.21.0-alpha.1.0.20230904092046-df3db2d96583
 	github.com/cosmos/ledger-cosmos-go v0.12.2
 	github.com/deckarep/golang-set v1.8.0
+	github.com/eni-chain/eni-db v0.0.2-0.20250129175321-94d9d28e61c0
+	github.com/eni-chain/eni-tm-db v0.0.2-0.20250129181020-eee6ed7cbdbe
 	github.com/ethereum/go-ethereum v1.13.2
 	github.com/gogo/gateway v1.1.0
 	github.com/gogo/protobuf v1.3.3
@@ -38,8 +40,6 @@ require (
 	github.com/regen-network/cosmos-proto v0.3.1
 	github.com/rs/zerolog v1.30.0
 	github.com/savaki/jq v0.0.0-20161209013833-0e6baecebbf8
-	github.com/sei-protocol/sei-db v0.0.27-0.20240123064153-d6dfa112e760
-	github.com/sei-protocol/sei-tm-db v0.0.5
 	github.com/spf13/cast v1.5.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
@@ -189,16 +189,15 @@ require (
 replace (
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.1.7-0.20210622111912-ef00f8ac3d76
 	github.com/confio/ics23/go => github.com/cosmos/cosmos-sdk/ics23/go v0.8.0
-	github.com/cosmos/iavl => github.com/sei-protocol/sei-iavl v0.1.9
-	github.com/ethereum/go-ethereum => github.com/sei-protocol/go-ethereum v1.13.5-sei-21
+	github.com/cosmos/iavl => github.com/eni-chain/eni-iavl v0.0.1
+	github.com/ethereum/go-ethereum => github.com/eni-chain/go-ethereum v0.0.1
 	// Fix upstream GHSA-h395-qcrw-5vmq vulnerability.
 	// TODO Remove it: https://github.com/cosmos/cosmos-sdk/issues/10409
 	github.com/gin-gonic/gin => github.com/gin-gonic/gin v1.7.0
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	github.com/sei-protocol/sei-db => github.com/sei-protocol/sei-db v0.0.46
 	// Latest goleveldb is broken, we have to stick to this version
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
-	github.com/tendermint/tendermint => github.com/sei-protocol/sei-tendermint v0.4.5
+	github.com/tendermint/tendermint => github.com/eni-chain/eni-tendermint v0.0.1
 	// latest grpc doesn't work with with our modified proto compiler, so we need to enforce
 	// the following version across all dependencies.
 	google.golang.org/grpc => google.golang.org/grpc v1.33.2

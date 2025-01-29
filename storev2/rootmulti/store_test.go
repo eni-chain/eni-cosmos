@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/store/types"
-	"github.com/sei-protocol/sei-db/config"
+	"github.com/eni-chain/eni-db/config"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/libs/log"
 )
