@@ -47,9 +47,9 @@ func TestPrepareConfigForTxCreateValidator(t *testing.T) {
 		}, {
 			name: "Custom amount",
 			fsModify: func(fs *pflag.FlagSet) {
-				fs.Set(FlagAmount, "2000usei")
+				fs.Set(FlagAmount, "2000ueni")
 			},
-			expectedCfg: mkTxValCfg("2000usei", "0.1", "0.2", "0.01", "1"),
+			expectedCfg: mkTxValCfg("2000ueni", "0.1", "0.2", "0.01", "1"),
 		}, {
 			name: "Custom commission rate",
 			fsModify: func(fs *pflag.FlagSet) {

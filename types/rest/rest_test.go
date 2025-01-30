@@ -42,9 +42,9 @@ func TestBaseReq_Sanitize(t *testing.T) {
 
 func TestBaseReq_ValidateBasic(t *testing.T) {
 	fromAddr := "cosmos1cq0sxam6x4l0sv9yz3a2vlqhdhvt2k6jtgcse0"
-	tenstakes, err := types.ParseCoinsNormalized("10usei")
+	tenstakes, err := types.ParseCoinsNormalized("10ueni")
 	require.NoError(t, err)
-	onestake, err := types.ParseDecCoins("1.0usei")
+	onestake, err := types.ParseDecCoins("1.0ueni")
 	require.NoError(t, err)
 
 	req1 := rest.NewBaseReq(

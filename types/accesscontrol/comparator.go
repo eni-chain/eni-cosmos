@@ -117,7 +117,7 @@ func (c *Comparator) String() string {
 
 func (c *Comparator) EmitValidationFailMetrics() {
 	telemetry.IncrCounterWithLabels(
-		[]string{"sei", "concurrent", "tx", "validation", "failed"},
+		[]string{"eni", "concurrent", "tx", "validation", "failed"},
 		1,
 		[]metrics.Label{
 			telemetry.NewLabel("access_type", c.AccessType.String()),

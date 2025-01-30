@@ -8,7 +8,7 @@ The bank module contains the following parameters:
 
 | Key                | Type          | Example                            |
 | ------------------ | ------------- | ---------------------------------- |
-| SendEnabled        | []SendEnabled | [{denom: "usei", enabled: true }] |
+| SendEnabled        | []SendEnabled | [{denom: "ueni", enabled: true }] |
 | DefaultSendEnabled | bool          | true                               |
 
 ## SendEnabled

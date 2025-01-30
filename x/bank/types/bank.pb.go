@@ -418,7 +418,7 @@ func (m *Metadata) GetSymbol() string {
 }
 
 type AllowList struct {
-	// Can be empty for no admin, or a valid sei address
+	// Can be empty for no admin, or a valid eni address
 	Addresses []string `protobuf:"bytes,1,rep,name=addresses,proto3" json:"addresses,omitempty" yaml:"addresses"`
 }
 

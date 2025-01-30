@@ -125,7 +125,7 @@ func (m *Metrics) setupPrometheus(cfg Config) (*metricsprom.PrometheusSink, erro
 		},
 		CounterDefinitions: []metricsprom.CounterDefinition{
 			{
-				Name: []string{"sei_cosmos_validator_slashed"},
+				Name: []string{"eni_cosmos_validator_slashed"},
 				Help: "Total number of validator was slashed",
 			},
 		},

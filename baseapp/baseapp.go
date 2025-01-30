@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/armon/go-metrics"
 	"github.com/cosmos/cosmos-sdk/server/config"
 	"github.com/cosmos/cosmos-sdk/utils/tracing"
 	sdbm "github.com/eni-chain/eni-tm-db/backends"
@@ -300,7 +301,7 @@ func NewBaseApp(
 	app.runTxRecoveryMiddleware = newDefaultRecoveryMiddleware()
 	app.ChainID = cast.ToString(appOpts.Get(FlagChainID))
 	if app.ChainID == "" {
-		panic("must pass --chain-id when calling 'seid start' or set in ~/.sei/config/client.toml")
+		panic("must pass --chain-id when calling 'enid start' or set in ~/.eni/config/client.toml")
 	}
 	app.startCompactionRoutine(db)
 
@@ -1097,7 +1098,7 @@ func (app *BaseApp) runMsgs(ctx sdk.Context, msgs []sdk.Msg, mode runTxMode) (*s
 			msgResult, err = handler(msgCtx, msg)
 			eventMsgName = sdk.MsgTypeURL(msg)
 			metrics.MeasureSinceWithLabels(
-				[]string{"sei", "cosmos", "run", "msg", "latency"},
+				[]string{"eni", "cosmos", "run", "msg", "latency"},
 				startTime,
 				[]metrics.Label{{Name: "type", Value: eventMsgName}},
 			)

@@ -684,12 +684,12 @@ func (rs *Store) ResetEvents() {
 	panic("should never attempt to reset events from commit multi store")
 }
 
-// ListeningEnabled will always return false for seiDB
+// ListeningEnabled will always return false for eniDB
 func (rs *Store) ListeningEnabled(_ types.StoreKey) bool {
 	return false
 }
 
-// AddListeners is no-opts for seiDB
+// AddListeners is no-opts for eniDB
 func (rs *Store) AddListeners(_ types.StoreKey, _ []types.WriteListener) {
 	return
 }

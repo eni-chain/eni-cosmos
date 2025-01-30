@@ -287,8 +287,8 @@ Where proposal.json contains:
   "title": "Community Pool Spend",
   "description": "Pay me some Atoms!",
   "recipient": "%s1s5afhd6gxevu37mkqcvvsj8qeylhn0rz46zdlq",
-  "amount": "1000usei",
-  "deposit": "1000usei"
+  "amount": "1000ueni",
+  "deposit": "1000ueni"
 }
 `,
 				version.AppName, bech32PrefixAccAddr,

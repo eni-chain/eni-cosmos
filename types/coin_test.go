@@ -61,7 +61,7 @@ func (s *coinTestSuite) TestIsEqualCoin() {
 	}{
 		{sdk.NewInt64Coin(testDenom1, 1), sdk.NewInt64Coin(testDenom1, 1), true, false},
 		{sdk.NewInt64Coin(testDenom1, 1), sdk.NewInt64Coin(testDenom2, 1), false, true},
-		{sdk.NewInt64Coin("usei", 1), sdk.NewInt64Coin("usei", 10), false, false},
+		{sdk.NewInt64Coin("ueni", 1), sdk.NewInt64Coin("ueni", 10), false, false},
 	}
 
 	for tcIndex, tc := range cases {
@@ -735,7 +735,7 @@ func (s *coinTestSuite) TestParseCoins() {
 		expected sdk.Coins // if valid is true, make sure this is returned
 	}{
 		{"", true, nil},
-		{"0usei", true, sdk.Coins{}}, // remove zero coins
+		{"0ueni", true, sdk.Coins{}}, // remove zero coins
 		{"0stake,1foo,99bar", true, sdk.Coins{{"bar", sdk.NewInt(99)}, {"foo", one}}}, // remove zero coins
 		{"1foo", true, sdk.Coins{{"foo", one}}},
 		{"10btc,1atom,20btc", false, nil},

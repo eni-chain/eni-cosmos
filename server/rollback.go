@@ -77,7 +77,7 @@ application. If you wanna rollback multiple blocks, please add --hard option.
 		},
 	}
 
-	cmd.Flags().String(flags.FlagChainID, "sei-chain", "genesis file chain-id, if left blank will use sei")
+	cmd.Flags().String(flags.FlagChainID, "eni-chain", "genesis file chain-id, if left blank will use eni")
 	cmd.Flags().BoolVar(&removeBlock, "hard", false, "remove last block as well as state")
 	cmd.Flags().String(flags.FlagHome, defaultNodeHome, "The application home directory")
 	return cmd

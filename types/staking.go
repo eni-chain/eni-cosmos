@@ -4,7 +4,7 @@ package types
 const (
 
 	// default bond denomination
-	DefaultBondDenom = "usei"
+	DefaultBondDenom = "ueni"
 
 	// default maximal voting power ratio
 	// Max percentage of the total voting power a single validator can have

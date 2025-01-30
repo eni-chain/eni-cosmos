@@ -43,7 +43,7 @@ func MsgUpdateResourceDependencyMappingProposalCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Short: "Submit an UpdateResourceDependencyMapping proposal",
 		Long: "Submit a proposal to update resource dependencies between objects. \n" +
-			"E.g. $ seid update-resource-dependency-mapping [proposal-file]\n" +
+			"E.g. $ enid update-resource-dependency-mapping [proposal-file]\n" +
 			"The proposal file should contain the following:\n" +
 			"{\n" +
 			"\t title: [title],\n" +
@@ -94,7 +94,7 @@ func MsgRegisterWasmDependencyMappingCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Short: "Register dependencies for a wasm contract",
 		Long: "Registers dependencies for a wasm contract\n" +
-			"E.g. $seid register-wasm-dependency-mapping [mapping-json-file]\n" +
+			"E.g. $enid register-wasm-dependency-mapping [mapping-json-file]\n" +
 			"The mapping JSON file should contain the following:\n" +
 			"{\n" +
 			"\t wasm_dependency_mapping: <wasm dependency mapping>\n" +

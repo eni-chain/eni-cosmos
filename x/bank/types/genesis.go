@@ -69,25 +69,25 @@ func getTotalSupply(genState *GenesisState) (sdk.Coins, error) {
 	for _, weiBalance := range genState.WeiBalances {
 		totalWeiBalance = totalWeiBalance.Add(weiBalance.Amount)
 	}
-	weiInUsei, weiRemainder := SplitUseiWeiAmount(totalWeiBalance)
+	weiInUeni, weiRemainder := SplitUeniWeiAmount(totalWeiBalance)
 	if !weiRemainder.IsZero() {
 		return nil, fmt.Errorf("non-zero wei remainder %s", weiRemainder)
 	}
 	baseDenom, err := sdk.GetBaseDenom()
 	if err != nil {
-		if !weiInUsei.IsZero() {
-			return nil, fmt.Errorf("base denom is not registered %s yet there exists wei balance %s", err, weiInUsei)
+		if !weiInUeni.IsZero() {
+			return nil, fmt.Errorf("base denom is not registered %s yet there exists wei balance %s", err, weiInUeni)
 		}
 	} else {
-		totalSupply = totalSupply.Add(sdk.NewCoin(baseDenom, weiInUsei))
+		totalSupply = totalSupply.Add(sdk.NewCoin(baseDenom, weiInUeni))
 	}
 	return totalSupply, nil
 }
 
-var OneUseiInWei sdk.Int = sdk.NewInt(1_000_000_000_000)
+var OneUeniInWei sdk.Int = sdk.NewInt(1_000_000_000_000)
 
-func SplitUseiWeiAmount(amt sdk.Int) (sdk.Int, sdk.Int) {
-	return amt.Quo(OneUseiInWei), amt.Mod(OneUseiInWei)
+func SplitUeniWeiAmount(amt sdk.Int) (sdk.Int, sdk.Int) {
+	return amt.Quo(OneUeniInWei), amt.Mod(OneUeniInWei)
 }
 
 // NewGenesisState creates a new genesis state.

@@ -72,8 +72,8 @@ func TestParseProposal(t *testing.T) {
   "title": "Community Pool Spend",
   "description": "Pay me some Atoms!",
   "recipient": "cosmos1s5afhd6gxevu37mkqcvvsj8qeylhn0rz46zdlq",
-  "amount": "1000usei",
-  "deposit": "1000usei"
+  "amount": "1000ueni",
+  "deposit": "1000ueni"
 }
 `)
 
@@ -83,6 +83,6 @@ func TestParseProposal(t *testing.T) {
 	require.Equal(t, "Community Pool Spend", proposal.Title)
 	require.Equal(t, "Pay me some Atoms!", proposal.Description)
 	require.Equal(t, "cosmos1s5afhd6gxevu37mkqcvvsj8qeylhn0rz46zdlq", proposal.Recipient)
-	require.Equal(t, "1000usei", proposal.Deposit)
-	require.Equal(t, "1000usei", proposal.Amount)
+	require.Equal(t, "1000ueni", proposal.Deposit)
+	require.Equal(t, "1000ueni", proposal.Amount)
 }

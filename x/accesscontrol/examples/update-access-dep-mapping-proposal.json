@@ -1,7 +1,7 @@
 {
     "title": "Updating Resource Dependency Mapping",
     "description": "Updating mapping for message key 'testing'",
-    "deposit": "10sei",
+    "deposit": "10eni",
     "message_dependency_mapping": [
         {
           "message_key": "testing",

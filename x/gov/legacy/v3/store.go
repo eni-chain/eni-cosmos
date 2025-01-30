@@ -5,12 +5,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
-// If expedited, the deposit to enter voting period will be increased to 5000 usei.
+// If expedited, the deposit to enter voting period will be increased to 5000 ueni.
 // The expedited proposal will have 24 hours to achieve
 // a two-thirds quorum of all voting power participation
 // a two-thirds majority of all staked voting power voting YES.
 var (
-	MinExpeditedDeposit   = sdk.NewCoins(sdk.NewCoin("usei", types.DefaultMinExpeditedDepositTokens))
+	MinExpeditedDeposit   = sdk.NewCoins(sdk.NewCoin("ueni", types.DefaultMinExpeditedDepositTokens))
 	ExpeditedVotingPeriod = types.DefaultExpeditedPeriod
 	ExpeditedQuorum       = types.DefaultExpeditedQuorum
 	ExpeditedThreshold    = types.DefaultExpeditedThreshold

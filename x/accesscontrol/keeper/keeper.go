@@ -611,12 +611,12 @@ func (k Keeper) BuildDependencyDag(ctx sdk.Context, anteDepGen sdk.AnteDepGenera
 // Measures the time taken to build dependency dag
 // Metric Names:
 //
-//	sei_dag_build_duration_miliseconds
-//	sei_dag_build_duration_miliseconds_count
-//	sei_dag_build_duration_miliseconds_sum
+//	eni_dag_build_duration_miliseconds
+//	eni_dag_build_duration_miliseconds_count
+//	eni_dag_build_duration_miliseconds_sum
 func MeasureBuildDagDuration(start time.Time, method string) {
 	metrics.MeasureSinceWithLabels(
-		[]string{"sei", "dag", "build", "milliseconds"},
+		[]string{"eni", "dag", "build", "milliseconds"},
 		start.UTC(),
 		[]metrics.Label{telemetry.NewLabel("method", method)},
 	)

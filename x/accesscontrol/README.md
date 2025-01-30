@@ -1,6 +1,6 @@
 # x/accesscontrol
 
-The x/accesscontrol module is part of the Sei Protocol on Cosmos. This module is responsible for defining and managing the resource dependencies for each message type in the system to enable concurrent transaction execution.
+The x/accesscontrol module is part of the Eni Protocol on Cosmos. This module is responsible for defining and managing the resource dependencies for each message type in the system to enable concurrent transaction execution.
 
 ## Resource Dependency Mapping
 
@@ -28,11 +28,11 @@ In summary, the x/accesscontrol module provides a mechanism for managing and enf
 
 The x/accesscontrol module supports various query commands:
 
-Get Params: Returns the parameters for the x/accesscontrol module. Run with: `seid q accesscontrol params`
+Get Params: Returns the parameters for the x/accesscontrol module. Run with: `enid q accesscontrol params`
 
-Get Resource Dependency Mapping: Returns the resource dependency mapping for a specific message key. Run with: `seid q accesscontrol resource-dependency-mapping [messageKey]`.
+Get Resource Dependency Mapping: Returns the resource dependency mapping for a specific message key. Run with: `enid q accesscontrol resource-dependency-mapping [messageKey]`.
 
-List Resource Dependency Mapping: Lists all resource dependency mappings. Run with: `seid q accesscontrol list-resource-dependency-mapping `
+List Resource Dependency Mapping: Lists all resource dependency mappings. Run with: `enid q accesscontrol list-resource-dependency-mapping `
 
 Transaction Commands
 The x/accesscontrol module supports various transaction commands:
@@ -48,7 +48,7 @@ Update Resource Dependency Mapping Proposal: Submits a proposal to update resour
 }
 ```
 
-Run with: seid tx accesscontrol update-resource-dependency-mapping [proposal-file].
+Run with: enid tx accesscontrol update-resource-dependency-mapping [proposal-file].
 
 Register Wasm Dependency Mapping: Registers dependencies for a Wasm contract. The mapping should be provided as a JSON file with the following structure:
 
@@ -58,4 +58,4 @@ Register Wasm Dependency Mapping: Registers dependencies for a Wasm contract. Th
 }
 ```
 
-Run with: seid tx accesscontrol register-wasm-dependency-mapping [mapping-json-file].
+Run with: enid tx accesscontrol register-wasm-dependency-mapping [mapping-json-file].

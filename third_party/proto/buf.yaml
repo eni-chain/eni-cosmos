@@ -1,6 +1,6 @@
-# This module represents buf.build/sei-protocol/third-party
+# This module represents buf.build/eni-chain/third-party
 version: v1
-name: buf.build/sei-protocol/third-party
+name: buf.build/eni-chain/third-party
 deps:
   - buf.build/googleapis/googleapis
 

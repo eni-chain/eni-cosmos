@@ -63,7 +63,7 @@ func GetResourceDependencyMapping() *cobra.Command {
 		Use:   "resource-dependency-mapping [messageKey] [flags]",
 		Short: "Get the resource dependency mapping for a specific message key",
 		Long: "Get the resource dependency mapping for a specific message key. E.g.\n" +
-			"$ seid q accesscontrol resource-dependency-mapping [messageKey] [flags]",
+			"$ enid q accesscontrol resource-dependency-mapping [messageKey] [flags]",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientQueryContext(cmd)
@@ -124,7 +124,7 @@ func GetWasmDependencyAccessOps() *cobra.Command {
 		Use:   "wasm-dependency-mapping [contractAddr] [flags]",
 		Short: "Get the wasm contract dependency mapping for a specific contract address",
 		Long: "Get the wasm contract dependency mapping for a specific contract address. E.g.\n" +
-			"$ seid q accesscontrol wasm-dependency-mapping [contractAddr] [flags]",
+			"$ enid q accesscontrol wasm-dependency-mapping [contractAddr] [flags]",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientQueryContext(cmd)

@@ -46,7 +46,7 @@ type SendKeeper interface {
 type RecipientChecker = func(ctx sdk.Context, recipient sdk.AccAddress) bool
 
 var _ SendKeeper = (*BaseSendKeeper)(nil)
-var OneUseiInWei sdk.Int = sdk.NewInt(1_000_000_000_000)
+var OneUeniInWei sdk.Int = sdk.NewInt(1_000_000_000_000)
 
 // BaseSendKeeper only allows transfers between accounts without the possibility of
 // creating coins. It implements the SendKeeper interface.
@@ -359,17 +359,17 @@ func (k BaseSendKeeper) SubWei(ctx sdk.Context, addr sdk.AccAddress, amt sdk.Int
 	}()
 	currentWeiBalance := k.GetWeiBalance(ctx, addr)
 	if amt.LTE(currentWeiBalance) {
-		// no need to change usei balance
+		// no need to change ueni balance
 		return k.setWeiBalance(ctx, addr, currentWeiBalance.Sub(amt))
 	}
-	currentUseiBalance := k.GetBalance(ctx, addr, sdk.MustGetBaseDenom()).Amount
-	currentAggregatedBalance := currentUseiBalance.Mul(OneUseiInWei).Add(currentWeiBalance)
+	currentUeniBalance := k.GetBalance(ctx, addr, sdk.MustGetBaseDenom()).Amount
+	currentAggregatedBalance := currentUeniBalance.Mul(OneUeniInWei).Add(currentWeiBalance)
 	postAggregatedbalance := currentAggregatedBalance.Sub(amt)
 	if postAggregatedbalance.IsNegative() {
 		return sdkerrors.Wrapf(sdkerrors.ErrInsufficientFunds, "%swei is smaller than %swei", currentAggregatedBalance, amt)
 	}
-	useiBalance, weiBalance := SplitUseiWeiAmount(postAggregatedbalance)
-	if err := k.setBalance(ctx, addr, sdk.NewCoin(sdk.MustGetBaseDenom(), useiBalance), true); err != nil {
+	ueniBalance, weiBalance := SplitUeniWeiAmount(postAggregatedbalance)
+	if err := k.setBalance(ctx, addr, sdk.NewCoin(sdk.MustGetBaseDenom(), ueniBalance), true); err != nil {
 		return err
 	}
 	return k.setWeiBalance(ctx, addr, weiBalance)
@@ -391,13 +391,13 @@ func (k BaseSendKeeper) AddWei(ctx sdk.Context, addr sdk.AccAddress, amt sdk.Int
 	}()
 	currentWeiBalance := k.GetWeiBalance(ctx, addr)
 	postWeiBalance := currentWeiBalance.Add(amt)
-	if postWeiBalance.LT(OneUseiInWei) {
-		// no need to change usei balance
+	if postWeiBalance.LT(OneUeniInWei) {
+		// no need to change ueni balance
 		return k.setWeiBalance(ctx, addr, postWeiBalance)
 	}
-	currentUseiBalance := k.GetBalance(ctx, addr, sdk.MustGetBaseDenom()).Amount
-	useiCredit, weiBalance := SplitUseiWeiAmount(postWeiBalance)
-	if err := k.setBalance(ctx, addr, sdk.NewCoin(sdk.MustGetBaseDenom(), currentUseiBalance.Add(useiCredit)), true); err != nil {
+	currentUeniBalance := k.GetBalance(ctx, addr, sdk.MustGetBaseDenom()).Amount
+	ueniCredit, weiBalance := SplitUeniWeiAmount(postWeiBalance)
+	if err := k.setBalance(ctx, addr, sdk.NewCoin(sdk.MustGetBaseDenom(), currentUeniBalance.Add(ueniCredit)), true); err != nil {
 		return err
 	}
 	return k.setWeiBalance(ctx, addr, weiBalance)
@@ -437,8 +437,8 @@ func (k BaseSendKeeper) CanSendTo(ctx sdk.Context, recipient sdk.AccAddress) boo
 	return true
 }
 
-func SplitUseiWeiAmount(amt sdk.Int) (sdk.Int, sdk.Int) {
-	return amt.Quo(OneUseiInWei), amt.Mod(OneUseiInWei)
+func SplitUeniWeiAmount(amt sdk.Int) (sdk.Int, sdk.Int) {
+	return amt.Quo(OneUeniInWei), amt.Mod(OneUeniInWei)
 }
 
 func (k BaseSendKeeper) SetDenomAllowList(ctx sdk.Context, denom string, allowList types.AllowList) {

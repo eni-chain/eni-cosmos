@@ -1,3 +1,4 @@
+//go:build norace
 // +build norace
 
 package rest_test
@@ -42,7 +43,7 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	_, err := s.network.WaitForHeight(1)
 	s.Require().NoError(err)
 
-	unbond, err := sdk.ParseCoinNormalized("10usei")
+	unbond, err := sdk.ParseCoinNormalized("10ueni")
 	s.Require().NoError(err)
 
 	val := s.network.Validators[0]

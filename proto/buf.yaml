@@ -1,6 +1,6 @@
-# This module represents buf.build/sei-protocol/cosmos-sdk
+# This module represents buf.build/eni-chain/cosmos-sdk
 version: v1
-name: buf.build/sei-protocol/cosmos-sdk
+name: buf.build/eni-chain/cosmos-sdk
 deps:
   - buf.build/sei-protocol/third-party
 

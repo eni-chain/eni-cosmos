@@ -131,13 +131,13 @@ func (suite *IntegrationTestSuite) TestSendCoinsAndWei() {
 	require.Equal(sdk.ZeroInt(), keeper.GetWeiBalance(ctx, addr2))
 	require.Equal(sdk.NewInt(100), keeper.GetBalance(ctx, addr1, sdk.DefaultBondDenom).Amount)
 	require.Equal(sdk.ZeroInt(), keeper.GetBalance(ctx, addr2, sdk.DefaultBondDenom).Amount)
-	// should just do usei send if wei is zero
+	// should just do ueni send if wei is zero
 	require.NoError(keeper.SendCoinsAndWei(ctx, addr1, addr3, sdk.NewInt(50), sdk.ZeroInt()))
 	require.Equal(sdk.ZeroInt(), keeper.GetWeiBalance(ctx, addr1))
 	require.Equal(sdk.ZeroInt(), keeper.GetWeiBalance(ctx, addr3))
 	require.Equal(sdk.NewInt(50), keeper.GetBalance(ctx, addr1, sdk.DefaultBondDenom).Amount)
 	require.Equal(sdk.NewInt(50), keeper.GetBalance(ctx, addr3, sdk.DefaultBondDenom).Amount)
-	// sender gets escrowed one usei, recipient does not get redeemed
+	// sender gets escrowed one ueni, recipient does not get redeemed
 	require.NoError(keeper.SendCoinsAndWei(ctx, addr1, addr2, sdk.NewInt(1), sdk.NewInt(1)))
 	require.Equal(sdk.NewInt(999_999_999_999), keeper.GetWeiBalance(ctx, addr1))
 	require.Equal(sdk.OneInt(), keeper.GetWeiBalance(ctx, addr2))
@@ -1172,8 +1172,8 @@ func (suite *IntegrationTestSuite) TestSpendableCoins() {
 	ctx = ctx.WithBlockHeader(tmproto.Header{Time: now})
 	endTime := now.Add(24 * time.Hour)
 
-	origCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 100))
-	delCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 50))
+	origCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 100))
+	delCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 50))
 
 	addr1 := sdk.AccAddress([]byte("addr1_______________"))
 	addr2 := sdk.AccAddress([]byte("addr2_______________"))
@@ -1203,8 +1203,8 @@ func (suite *IntegrationTestSuite) TestVestingAccountSend() {
 	ctx = ctx.WithBlockHeader(tmproto.Header{Time: now})
 	endTime := now.Add(24 * time.Hour)
 
-	origCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 100))
-	sendCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 50))
+	origCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 100))
+	sendCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 50))
 
 	addr1 := sdk.AccAddress([]byte("addr1_______________"))
 	addr2 := sdk.AccAddress([]byte("addr2_______________"))
@@ -1230,15 +1230,15 @@ func (suite *IntegrationTestSuite) TestPeriodicVestingAccountSend() {
 	app, ctx := suite.app, suite.ctx
 	now := tmtime.Now()
 	ctx = ctx.WithBlockHeader(tmproto.Header{Time: now})
-	origCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 100))
-	sendCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 50))
+	origCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 100))
+	sendCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 50))
 
 	addr1 := sdk.AccAddress([]byte("addr1_______________"))
 	addr2 := sdk.AccAddress([]byte("addr2_______________"))
 	periods := vesting.Periods{
-		vesting.Period{Length: int64(12 * 60 * 60), Amount: sdk.Coins{sdk.NewInt64Coin("usei", 50)}},
-		vesting.Period{Length: int64(6 * 60 * 60), Amount: sdk.Coins{sdk.NewInt64Coin("usei", 25)}},
-		vesting.Period{Length: int64(6 * 60 * 60), Amount: sdk.Coins{sdk.NewInt64Coin("usei", 25)}},
+		vesting.Period{Length: int64(12 * 60 * 60), Amount: sdk.Coins{sdk.NewInt64Coin("ueni", 50)}},
+		vesting.Period{Length: int64(6 * 60 * 60), Amount: sdk.Coins{sdk.NewInt64Coin("ueni", 25)}},
+		vesting.Period{Length: int64(6 * 60 * 60), Amount: sdk.Coins{sdk.NewInt64Coin("ueni", 25)}},
 	}
 
 	bacc := authtypes.NewBaseAccountWithAddress(addr1)
@@ -1265,8 +1265,8 @@ func (suite *IntegrationTestSuite) TestVestingAccountReceive() {
 	ctx = ctx.WithBlockHeader(tmproto.Header{Time: now})
 	endTime := now.Add(24 * time.Hour)
 
-	origCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 100))
-	sendCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 50))
+	origCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 100))
+	sendCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 50))
 
 	addr1 := sdk.AccAddress([]byte("addr1_______________"))
 	addr2 := sdk.AccAddress([]byte("addr2_______________"))
@@ -1298,17 +1298,17 @@ func (suite *IntegrationTestSuite) TestPeriodicVestingAccountReceive() {
 	now := tmtime.Now()
 	ctx = ctx.WithBlockHeader(tmproto.Header{Time: now})
 
-	origCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 100))
-	sendCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 50))
+	origCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 100))
+	sendCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 50))
 
 	addr1 := sdk.AccAddress([]byte("addr1_______________"))
 	addr2 := sdk.AccAddress([]byte("addr2_______________"))
 
 	bacc := authtypes.NewBaseAccountWithAddress(addr1)
 	periods := vesting.Periods{
-		vesting.Period{Length: int64(12 * 60 * 60), Amount: sdk.Coins{sdk.NewInt64Coin("usei", 50)}},
-		vesting.Period{Length: int64(6 * 60 * 60), Amount: sdk.Coins{sdk.NewInt64Coin("usei", 25)}},
-		vesting.Period{Length: int64(6 * 60 * 60), Amount: sdk.Coins{sdk.NewInt64Coin("usei", 25)}},
+		vesting.Period{Length: int64(12 * 60 * 60), Amount: sdk.Coins{sdk.NewInt64Coin("ueni", 50)}},
+		vesting.Period{Length: int64(6 * 60 * 60), Amount: sdk.Coins{sdk.NewInt64Coin("ueni", 25)}},
+		vesting.Period{Length: int64(6 * 60 * 60), Amount: sdk.Coins{sdk.NewInt64Coin("ueni", 25)}},
 	}
 
 	vacc := vesting.NewPeriodicVestingAccount(bacc, origCoins, ctx.BlockHeader().Time.Unix(), periods, nil)
@@ -1338,8 +1338,8 @@ func (suite *IntegrationTestSuite) TestDelegateCoins() {
 	ctx = ctx.WithBlockHeader(tmproto.Header{Time: now})
 	endTime := now.Add(24 * time.Hour)
 
-	origCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 100))
-	delCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 50))
+	origCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 100))
+	delCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 50))
 
 	addr1 := sdk.AccAddress([]byte("addr1_______________"))
 	addr2 := sdk.AccAddress([]byte("addr2_______________"))
@@ -1379,9 +1379,9 @@ func (suite *IntegrationTestSuite) TestDelegateCoinsFromAccountToModule() {
 	now := tmtime.Now()
 	ctx = ctx.WithBlockHeader(tmproto.Header{Time: now})
 
-	origCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 100))
-	delCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 50))
-	undelCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 20))
+	origCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 100))
+	delCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 50))
+	undelCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 20))
 
 	addr := sdk.AccAddress([]byte("addr2_______________"))
 	authKeeper, keeper := suite.initKeepersWithmAccPerms(make(map[string]bool))
@@ -1432,8 +1432,8 @@ func (suite *IntegrationTestSuite) TestUndelegateCoins() {
 	ctx = ctx.WithBlockHeader(tmproto.Header{Time: now})
 	endTime := now.Add(24 * time.Hour)
 
-	origCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 100))
-	delCoins := sdk.NewCoins(sdk.NewInt64Coin("usei", 50))
+	origCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 100))
+	delCoins := sdk.NewCoins(sdk.NewInt64Coin("ueni", 50))
 
 	addr1 := sdk.AccAddress([]byte("addr1_______________"))
 	addr2 := sdk.AccAddress([]byte("addr2_______________"))
@@ -1708,10 +1708,10 @@ func (suite *IntegrationTestSuite) TestCanSendTo() {
 	app.AccountKeeper.SetAccount(ctx, app.AccountKeeper.NewAccountWithAddress(ctx, badAddr))
 	app.AccountKeeper.SetAccount(ctx, app.AccountKeeper.NewAccountWithAddress(ctx, goodAddr))
 	app.AccountKeeper.SetAccount(ctx, app.AccountKeeper.NewAccountWithAddress(ctx, sourceAddr))
-	suite.Require().NoError(simapp.FundAccount(app.BankKeeper, ctx, sourceAddr, sdk.NewCoins(sdk.NewCoin("usei", sdk.NewInt(100)))))
+	suite.Require().NoError(simapp.FundAccount(app.BankKeeper, ctx, sourceAddr, sdk.NewCoins(sdk.NewCoin("ueni", sdk.NewInt(100)))))
 	checker := func(_ sdk.Context, addr sdk.AccAddress) bool { return !addr.Equals(badAddr) }
 	app.BankKeeper.RegisterRecipientChecker(checker)
-	amt := sdk.NewCoins(sdk.NewCoin("usei", sdk.NewInt(10)))
+	amt := sdk.NewCoins(sdk.NewCoin("ueni", sdk.NewInt(10)))
 	suite.Require().Nil(app.BankKeeper.SendCoins(ctx, sourceAddr, goodAddr, amt))
 	suite.Require().NotNil(app.BankKeeper.SendCoins(ctx, sourceAddr, badAddr, amt))
 	suite.Require().Nil(app.BankKeeper.SendCoinsAndWei(ctx, sourceAddr, goodAddr, sdk.OneInt(), sdk.ZeroInt()))

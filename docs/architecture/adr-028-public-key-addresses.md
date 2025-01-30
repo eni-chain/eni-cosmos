@@ -311,7 +311,7 @@ Module addresses: Should module addresses have different size to differentiate i
 
 Discssion about arithmetic hash function for ZKP
 
-+ Posseidon / Rescue
++ Poseidon / Rescue
 + Problem: much bigger risk because we don’t know much techniques and history of crypto-analysis of arithmetic constructions. It’s still a new ground and area of active research.
 
 Post quantum signature size

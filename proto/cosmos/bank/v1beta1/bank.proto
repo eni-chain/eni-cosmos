@@ -98,6 +98,6 @@ message Metadata {
 message AllowList {
   option (gogoproto.equal) = true;
 
-  // Can be empty for no admin, or a valid sei address
+  // Can be empty for no admin, or a valid eni address
   repeated string addresses = 1 [ (gogoproto.moretags) = "yaml:\"addresses\"" ];
 }

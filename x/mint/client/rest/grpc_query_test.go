@@ -1,3 +1,4 @@
+//go:build norace
 // +build norace
 
 package rest_test
@@ -72,7 +73,7 @@ func (s *IntegrationTestSuite) TestQueryGRPC() {
 			map[string]string{},
 			&minttypes.QueryParamsResponse{},
 			&minttypes.QueryParamsResponse{
-				Params: minttypes.NewParams("usei", sdk.NewDecWithPrec(13, 2), sdk.NewDecWithPrec(100, 2),
+				Params: minttypes.NewParams("ueni", sdk.NewDecWithPrec(13, 2), sdk.NewDecWithPrec(100, 2),
 					sdk.NewDec(1), sdk.NewDecWithPrec(67, 2), (60 * 60 * 8766 / 5)),
 			},
 		},

@@ -80,7 +80,7 @@ func TotalSupply(k Keeper) sdk.Invariant {
 			weiTotal = weiTotal.Add(balance)
 			return false
 		})
-		weiInUsei, weiRemainder := SplitUseiWeiAmount(weiTotal)
+		weiInUeni, weiRemainder := SplitUeniWeiAmount(weiTotal)
 		if !weiRemainder.IsZero() {
 			return sdk.FormatInvariant(types.ModuleName, "total supply",
 				fmt.Sprintf(
@@ -89,8 +89,8 @@ func TotalSupply(k Keeper) sdk.Invariant {
 		}
 		baseDenom, err := sdk.GetBaseDenom()
 		if err == nil {
-			expectedTotal = expectedTotal.Add(sdk.NewCoin(baseDenom, weiInUsei))
-		} else if !weiInUsei.IsZero() {
+			expectedTotal = expectedTotal.Add(sdk.NewCoin(baseDenom, weiInUeni))
+		} else if !weiInUeni.IsZero() {
 			return sdk.FormatInvariant(types.ModuleName, "total supply", "non-zero wei balance without base denom"), true
 		}
 

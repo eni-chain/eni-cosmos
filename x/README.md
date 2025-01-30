@@ -33,7 +33,7 @@ The IBC module for the SDK has moved to its [own repository](https://github.com/
 To query for current fee params:
 
 ```bash
-seid q params feesparams 
+enid q params feesparams 
 ```
 
 To update the feesparams, use a governance proposal like such:
@@ -49,14 +49,14 @@ To update the feesparams, use a governance proposal like such:
       "value": {
 	  "global_minimum_gas_prices": [
     		{
-      		"denom": "usei",
+      		"denom": "ueni",
       		"amount":	 "1.00000000000000000"
     		}
   	]
  	}
     }
   ],
-  "deposit": "1000000000usei",
+  "deposit": "1000000000ueni",
   "is_expedited": true
 }
 ```
