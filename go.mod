@@ -15,7 +15,7 @@ require (
 	github.com/cosmos/iavl v0.21.0-alpha.1.0.20230904092046-df3db2d96583
 	github.com/cosmos/ledger-cosmos-go v0.12.2
 	github.com/deckarep/golang-set v1.8.0
-	github.com/eni-chain/eni-db v0.0.2-0.20250129175321-94d9d28e61c0
+	github.com/eni-chain/eni-db v0.0.2-0.20250129181530-7ffab17c43f1
 	github.com/eni-chain/eni-tm-db v0.0.2-0.20250129181020-eee6ed7cbdbe
 	github.com/ethereum/go-ethereum v1.13.2
 	github.com/gogo/gateway v1.1.0
