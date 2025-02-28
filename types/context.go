@@ -39,6 +39,7 @@ but please do not over-use it. We try to keep all data structured
 and standard additions here would be better just to add to the Context struct
 */
 type Context struct {
+	ctx     context.Context
 	baseCtx context.Context
 	ms      storetypes.MultiStore
 	// Deprecated: Use HeaderService for height, time, and chainID and CometService for the rest
@@ -65,6 +66,27 @@ type Context struct {
 	streamingManager     storetypes.StreamingManager
 	cometInfo            comet.BlockInfo
 	headerInfo           header.Info
+
+	txSum             [32]byte
+	occEnabled        bool
+	evmEventManager   *EVMEventManager
+	pendingTxChecker  PendingTxChecker     // Checker for pending transaction, only relevant in CheckTx
+	checkTxCallback   func(Context, error) // callback to make at the end of CheckTx. Input param is the error (nil-able) of `runMsgs`
+	deliverTxCallback func(Context)        // callback to make at the end of DeliverTx.
+	expireTxHandler   func()               // callback that the mempool invokes when a tx is expired
+
+	// EVM properties
+	evm                                 bool   // EVM transaction flag
+	evmNonce                            uint64 // EVM Transaction nonce
+	evmSenderAddress                    string // EVM Sender address
+	evmTxHash                           string // EVM TX hash
+	evmVmError                          string // EVM VM error during execution
+	evmPrecompileCalledFromDelegateCall bool   // EVM precompile is called from a delegate call
+
+	messageIndex int // Used to track current message being processed
+	txIndex      int
+
+	traceSpanContext context.Context
 }
 
 // Proposed rename, not done to avoid API breakage
@@ -123,21 +145,102 @@ func (c Context) Err() error {
 	return c.baseCtx.Err()
 }
 
+func (c Context) TxSum() [32]byte {
+	return c.txSum
+}
+
+// OccEnabled returns the occEnabled value.
+func (c Context) OccEnabled() bool {
+	return c.occEnabled
+}
+
+// EvmEventManager returns the evmEventManager value.
+func (c Context) EvmEventManager() *EVMEventManager {
+	return c.evmEventManager
+}
+
+// PendingTxChecker returns the pendingTxChecker value.
+func (c Context) PendingTxChecker() PendingTxChecker {
+	return c.pendingTxChecker
+}
+
+// CheckTxCallback returns the checkTxCallback value.
+func (c Context) CheckTxCallback() func(Context, error) {
+	return c.checkTxCallback
+}
+
+// DeliverTxCallback returns the deliverTxCallback value.
+func (c Context) DeliverTxCallback() func(Context) {
+	return c.deliverTxCallback
+}
+
+// ExpireTxHandler returns the expireTxHandler value.
+func (c Context) ExpireTxHandler() func() {
+	return c.expireTxHandler
+}
+
+// Evm returns the evm flag value.
+func (c Context) Evm() bool {
+	return c.evm
+}
+
+// EvmNonce returns the evmNonce value.
+func (c Context) EvmNonce() uint64 {
+	return c.evmNonce
+}
+
+// EvmSenderAddress returns the evmSenderAddress value.
+func (c Context) EvmSenderAddress() string {
+	return c.evmSenderAddress
+}
+
+// EvmTxHash returns the evmTxHash value.
+func (c Context) EvmTxHash() string {
+	return c.evmTxHash
+}
+
+// EvmVmError returns the evmVmError value.
+func (c Context) EvmVmError() string {
+	return c.evmVmError
+}
+
+// EvmPrecompileCalledFromDelegateCall returns the evmPrecompileCalledFromDelegateCall value.
+func (c Context) EvmPrecompileCalledFromDelegateCall() bool {
+	return c.evmPrecompileCalledFromDelegateCall
+}
+
+// MessageIndex returns the messageIndex value.
+func (c Context) MessageIndex() int {
+	return c.messageIndex
+}
+
+// TxIndex returns the txIndex value.
+func (c Context) TxIndex() int {
+	return c.txIndex
+}
+
+// TraceSpanContext returns the traceSpanContext value.
+func (c Context) TraceSpanContext() context.Context {
+	return c.traceSpanContext
+}
+
 // create a new context
 func NewContext(ms storetypes.MultiStore, header cmtproto.Header, isCheckTx bool, logger log.Logger) Context {
 	// https://github.com/gogo/protobuf/issues/519
 	header.Time = header.Time.UTC()
 	return Context{
-		baseCtx:              context.Background(),
-		ms:                   ms,
-		header:               header,
-		chainID:              header.ChainID,
-		checkTx:              isCheckTx,
-		sigverifyTx:          true,
-		logger:               logger,
-		gasMeter:             storetypes.NewInfiniteGasMeter(),
-		minGasPrice:          DecCoins{},
-		eventManager:         NewEventManager(),
+		baseCtx:         context.Background(),
+		ms:              ms,
+		header:          header,
+		chainID:         header.ChainID,
+		checkTx:         isCheckTx,
+		sigverifyTx:     true,
+		logger:          logger,
+		gasMeter:        storetypes.NewInfiniteGasMeter(),
+		minGasPrice:     DecCoins{},
+		eventManager:    NewEventManager(),
+		evmEventManager: NewEVMEventManager(),
+
 		kvGasConfig:          storetypes.KVGasConfig(),
 		transientKVGasConfig: storetypes.TransientGasConfig(),
 	}
@@ -319,6 +422,101 @@ func (c Context) WithHeaderInfo(headerInfo header.Info) Context {
 	return c
 }
 
+func (c Context) WithTxSum(txSum [32]byte) Context {
+	c.txSum = txSum
+	return c
+}
+
+// WithOccEnabled returns a Context with an updated occEnabled value.
+func (c Context) WithOccEnabled(occEnabled bool) Context {
+	c.occEnabled = occEnabled
+	return c
+}
+
+// WithEvmEventManager returns a Context with an updated evmEventManager value.
+func (c Context) WithEvmEventManager(evmEventManager *EVMEventManager) Context {
+	c.evmEventManager = evmEventManager
+	return c
+}
+
+// WithPendingTxChecker returns a Context with an updated pendingTxChecker value.
+func (c Context) WithPendingTxChecker(pendingTxChecker PendingTxChecker) Context {
+	c.pendingTxChecker = pendingTxChecker
+	return c
+}
+
+// WithCheckTxCallback returns a Context with an updated checkTxCallback value.
+func (c Context) WithCheckTxCallback(callback func(Context, error)) Context {
+	c.checkTxCallback = callback
+	return c
+}
+
+// WithDeliverTxCallback returns a Context with an updated deliverTxCallback value.
+func (c Context) WithDeliverTxCallback(callback func(Context)) Context {
+	c.deliverTxCallback = callback
+	return c
+}
+
+// WithExpireTxHandler returns a Context with an updated expireTxHandler value.
+func (c Context) WithExpireTxHandler(handler func()) Context {
+	c.expireTxHandler = handler
+	return c
+}
+
+// WithEvm returns a Context with an updated evm flag value.
+func (c Context) WithEvm(evm bool) Context {
+	c.evm = evm
+	return c
+}
+
+// WithEvmNonce returns a Context with an updated evmNonce value.
+func (c Context) WithEvmNonce(nonce uint64) Context {
+	c.evmNonce = nonce
+	return c
+}
+
+// WithEvmSenderAddress returns a Context with an updated evmSenderAddress value.
+func (c Context) WithEvmSenderAddress(senderAddress string) Context {
+	c.evmSenderAddress = senderAddress
+	return c
+}
+
+// WithEvmTxHash returns a Context with an updated evmTxHash value.
+func (c Context) WithEvmTxHash(txHash string) Context {
+	c.evmTxHash = txHash
+	return c
+}
+
+// WithEvmVmError returns a Context with an updated evmVmError value.
+func (c Context) WithEvmVmError(vmError string) Context {
+	c.evmVmError = vmError
+	return c
+}
+
+// WithEvmPrecompileCalledFromDelegateCall returns a Context with an updated evmPrecompileCalledFromDelegateCall value.
+func (c Context) WithEvmPrecompileCalledFromDelegateCall(called bool) Context {
+	c.evmPrecompileCalledFromDelegateCall = called
+	return c
+}
+
+// WithMessageIndex returns a Context with an updated messageIndex value.
+func (c Context) WithMessageIndex(index int) Context {
+	c.messageIndex = index
+	return c
+}
+
+// WithTxIndex returns a Context with an updated txIndex value.
+func (c Context) WithTxIndex(index int) Context {
+	c.txIndex = index
+	return c
+}
+
+// WithTraceSpanContext returns a Context with an updated traceSpanContext value.
+func (c Context) WithTraceSpanContext(ctx context.Context) Context {
+	c.traceSpanContext = ctx
+	return c
+}
+
 // TODO: remove???
 func (c Context) IsZero() bool {
 	return c.ms == nil
@@ -397,3 +595,14 @@ func UnwrapSDKContext(ctx context.Context) Context {
 	}
 	return ctx.Value(SdkContextKey).(Context)
 }
+
+// todo should be cometbft abci.PendingTxChecker
+type PendingTxCheckerResponse int
+
+const (
+	Accepted PendingTxCheckerResponse = iota
+	Rejected
+	Pending
+)
+
+type PendingTxChecker func() PendingTxCheckerResponse

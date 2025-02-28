@@ -13,6 +13,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/cosmos/cosmos-sdk/codec"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
 type EventManagerI interface {
@@ -340,4 +341,18 @@ func MarkEventsToIndex(events []abci.Event, indexSet map[string]struct{}) []abci
 	}
 
 	return updatedEvents
+}
+
+type EVMEventManager struct {
+	events []*ethtypes.Log
+}
+
+func NewEVMEventManager() *EVMEventManager {
+	return &EVMEventManager{events: []*ethtypes.Log{}}
+}
+
+func (eem *EVMEventManager) Events() []*ethtypes.Log { return eem.events }
+
+func (eem *EVMEventManager) EmitEvents(events []*ethtypes.Log) {
+	eem.events = append(eem.events, events...)
 }
