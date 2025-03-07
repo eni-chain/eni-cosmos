@@ -531,7 +531,7 @@ In addition to message events, the bank keeper will produce events when the foll
 }
 ```
 
-#### addCoins
+#### AddCoins
 
 ```json
 {
@@ -551,7 +551,7 @@ In addition to message events, the bank keeper will produce events when the foll
 }
 ```
 
-#### subUnlockedCoins/DelegateCoins
+#### SubUnlockedCoins/DelegateCoins
 
 ```json
 {
