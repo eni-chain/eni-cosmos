@@ -65,6 +65,9 @@ type Context struct {
 	streamingManager     storetypes.StreamingManager
 	cometInfo            comet.BlockInfo
 	headerInfo           header.Info
+
+	txIndex int
+	txSum   [32]byte
 }
 
 // Proposed rename, not done to avoid API breakage
@@ -93,6 +96,8 @@ func (c Context) TransientKVGasConfig() storetypes.GasConfig    { return c.trans
 func (c Context) StreamingManager() storetypes.StreamingManager { return c.streamingManager }
 func (c Context) CometInfo() comet.BlockInfo                    { return c.cometInfo }
 func (c Context) HeaderInfo() header.Info                       { return c.headerInfo }
+func (c Context) TxIndex() int                                  { return c.txIndex }
+func (c Context) TxSum() [32]byte                               { return c.txSum }
 
 // clone the header before returning
 func (c Context) BlockHeader() cmtproto.Header {
@@ -141,6 +146,16 @@ func NewContext(ms storetypes.MultiStore, header cmtproto.Header, isCheckTx bool
 		kvGasConfig:          storetypes.KVGasConfig(),
 		transientKVGasConfig: storetypes.TransientGasConfig(),
 	}
+}
+func (c Context) WithTxSum(txSum [32]byte) Context {
+	c.txSum = txSum
+	return c
+}
+
+// WithTxIndex returns a Context with the current transaction index that's being processed
+func (c Context) WithTxIndex(txIndex int) Context {
+	c.txIndex = txIndex
+	return c
 }
 
 // WithContext returns a Context with an updated context.Context.
