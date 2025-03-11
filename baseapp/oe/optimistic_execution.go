@@ -8,14 +8,13 @@ import (
 	"sync"
 	"time"
 
-	abci "github.com/cometbft/cometbft/abci/types"
-
 	"cosmossdk.io/log"
+	abci "github.com/cometbft/cometbft/abci/types"
 )
 
 // FinalizeBlockFunc is the function that is called by the OE to finalize the
 // block. It is the same as the one in the ABCI app.
-type FinalizeBlockFunc func(context.Context, *abci.RequestFinalizeBlock) (*abci.ResponseFinalizeBlock, error)
+type FinalizeBlockFunc func(context.Context, *abci.RequestFinalizeBlock, ...[][]byte) (*abci.ResponseFinalizeBlock, error)
 
 // OptimisticExecution is a struct that contains the OE context. It is used to
 // run the FinalizeBlock function in a goroutine, and to abort it if needed.

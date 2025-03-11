@@ -689,7 +689,7 @@ func (app *BaseApp) VerifyVoteExtension(req *abci.RequestVerifyVoteExtension) (r
 // Execution flow or by the FinalizeBlock ABCI method. The context received is
 // only used to handle early cancellation, for anything related to state app.finalizeBlockState.Context()
 // must be used.
-func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.RequestFinalizeBlock) (*abci.ResponseFinalizeBlock, error) {
+func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.RequestFinalizeBlock, txGroups ...[][]byte) (*abci.ResponseFinalizeBlock, error) {
 	var events []abci.Event
 
 	if err := app.checkHalt(req.Height, req.Time); err != nil {
@@ -883,10 +883,23 @@ func (app *BaseApp) FinalizeBlock(req *abci.RequestFinalizeBlock) (res *abci.Res
 		app.optimisticExec.Reset()
 	}
 
-	// if no OE is running, just run the block (this is either a block replay or a OE that got aborted)
-	res, err = app.internalFinalizeBlock(context.Background(), req)
-	if res != nil {
-		res.AppHash = app.workingHash()
+	// parallel tx execution is enabled and block gas meter is not disabled
+	if app.enableParallelTxExecution && !app.disableBlockGasMeter {
+		txs, err := app.GroupByTxs(app.finalizeBlockState.Context(), req.Txs)
+		if err != nil {
+			return nil, err
+		}
+
+		res, err := app.internalFinalizeBlock(context.Background(), req, txs.otherGroups, txs.serialGroups)
+		if res != nil {
+			res.AppHash = app.workingHash()
+		}
+	} else {
+		// if no OE is running, just run the block (this is either a block replay or a OE that got aborted)
+		res, err = app.internalFinalizeBlock(context.Background(), req)
+		if res != nil {
+			res.AppHash = app.workingHash()
+		}
 	}
 
 	return res, err

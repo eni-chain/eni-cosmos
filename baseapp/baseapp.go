@@ -194,6 +194,9 @@ type BaseApp struct {
 	//
 	// SAFETY: it's safe to do if validators validate the total gas wanted in the `ProcessProposal`, which is the case in the default handler.
 	disableBlockGasMeter bool
+
+	// enableParallelTxExecution will enable parallel transaction execution if true.
+	enableParallelTxExecution bool
 }
 
 // NewBaseApp returns a reference to an initialized BaseApp. It accepts a
