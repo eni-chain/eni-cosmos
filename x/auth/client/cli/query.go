@@ -102,6 +102,11 @@ $ %s query tx --%s=%s <sig1_base64>,<sig2_base64...>
 				if args[0] == "" {
 					return fmt.Errorf("argument should be a tx hash")
 				}
+				str := args[0]
+
+				if strings.HasPrefix(str, "0x") {
+					str = strings.TrimPrefix(str, "0x")
+				}
 
 				// if hash is given, then query the tx by hash
 				output, err := authtx.QueryTx(clientCtx, args[0])
