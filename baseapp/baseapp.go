@@ -3,6 +3,7 @@ package baseapp
 import (
 	"context"
 	"fmt"
+	tasks "github.com/cosmos/cosmos-sdk/task"
 	"math"
 	"sort"
 	"strconv"
@@ -194,6 +195,9 @@ type BaseApp struct {
 	//
 	// SAFETY: it's safe to do if validators validate the total gas wanted in the `ProcessProposal`, which is the case in the default handler.
 	disableBlockGasMeter bool
+
+	// enableParallelTxExecution will enable parallel transaction execution if true.
+	enableParallelTxExecution bool
 }
 
 // NewBaseApp returns a reference to an initialized BaseApp. It accepts a
@@ -752,7 +756,7 @@ func (app *BaseApp) beginBlock(_ *abci.RequestFinalizeBlock) (sdk.BeginBlock, er
 	return resp, nil
 }
 
-func (app *BaseApp) deliverTx(tx []byte) *abci.ExecTxResult {
+func (app *BaseApp) deliverTx(ctx sdk.Context, tx []byte) *abci.ExecTxResult {
 	gInfo := sdk.GasInfo{}
 	resultStr := "successful"
 
@@ -765,7 +769,7 @@ func (app *BaseApp) deliverTx(tx []byte) *abci.ExecTxResult {
 		telemetry.SetGauge(float32(gInfo.GasWanted), "tx", "gas", "wanted")
 	}()
 
-	gInfo, result, anteEvents, _, err := app.runTx(execModeFinalize, tx)
+	gInfo, result, anteEvents, _, err := app.runTx(ctx, execModeFinalize, tx)
 	if err != nil {
 		resultStr = "failed"
 		resp = sdkerrors.ResponseExecTxResultWithEvents(
@@ -822,19 +826,15 @@ func (app *BaseApp) endBlock(_ context.Context) (sdk.EndBlock, error) {
 // Note, gas execution info is always returned. A reference to a Result is
 // returned if the tx does not run out of gas and if all the messages are valid
 // and execute successfully. An error is returned otherwise.
-func (app *BaseApp) runTx(mode execMode, txBytes []byte) (
-	gInfo sdk.GasInfo, result *sdk.Result, anteEvents []abci.Event,
-	//priority int64,
+func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo sdk.GasInfo, result *sdk.Result, anteEvents []abci.Event, //priority int64,
 	//pendingTxChecker abci.PendingTxChecker,
 	//expireHandler abci.ExpireTxHandler,
-	txCtx sdk.Context,
-	err error) {
+	txCtx sdk.Context, err error) {
 	// NOTE: GasWanted should be returned by the AnteHandler. GasUsed is
 	// determined by the GasMeter. We need access to the context to get the gas
 	// meter, so we initialize upfront.
 	var gasWanted uint64
 
-	ctx := app.getContextForTx(mode, txBytes)
 	ms := ctx.MultiStore()
 
 	// only run the tx if there is block gas remaining
@@ -1116,7 +1116,8 @@ func (app *BaseApp) PrepareProposalVerifyTx(tx sdk.Tx) ([]byte, error) {
 		return nil, err
 	}
 
-	_, _, _, _, err = app.runTx(execModePrepareProposal, bz)
+	ctx := app.getContextForTx(execModePrepareProposal, bz)
+	_, _, _, _, err = app.runTx(ctx, execModePrepareProposal, bz)
 	if err != nil {
 		return nil, err
 	}
@@ -1135,7 +1136,8 @@ func (app *BaseApp) ProcessProposalVerifyTx(txBz []byte) (sdk.Tx, error) {
 		return nil, err
 	}
 
-	_, _, _, _, err = app.runTx(execModeProcessProposal, txBz)
+	ctx := app.getContextForTx(execModeProcessProposal, txBz)
+	_, _, _, _, err = app.runTx(ctx, execModeProcessProposal, txBz)
 	if err != nil {
 		return nil, err
 	}
@@ -1176,4 +1178,61 @@ func (app *BaseApp) Close() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchRequest) []*abci.ExecTxResult {
+	scheduler := tasks.NewScheduler(app.deliverTx)
+	txRes, err := scheduler.ProcessAll(ctx, req)
+	if err != nil {
+		app.logger.Error("error while processing scheduler", "err", err)
+		panic(err)
+	}
+	return txRes
+}
+
+func (app *BaseApp) execTx(ctx sdk.Context, req sdk.DeliverTxBatchRequest, txs [][]byte) []*abci.ExecTxResult {
+	if ctx.IsParallelTx() {
+		return app.parallelProcessTxs(ctx, req)
+	}
+
+	return app.serialProcessTxs(ctx, txs)
+}
+
+func (app *BaseApp) parallelProcessTxs(ctx sdk.Context, req sdk.DeliverTxBatchRequest) []*abci.ExecTxResult {
+	return app.deliverTxBatch(ctx, req)
+}
+
+func (app *BaseApp) serialProcessTxs(ctx sdk.Context, txs [][]byte) []*abci.ExecTxResult {
+	txResults := make([]*abci.ExecTxResult, 0, len(txs))
+	for i, rawTx := range txs {
+		var response *abci.ExecTxResult
+		//devin: set tx index for receipt use
+		app.GetContextForFinalizeBlock(rawTx).WithTxIndex(i)
+		if _, err := app.txDecoder(rawTx); err == nil {
+			response = app.deliverTx(ctx, rawTx)
+		} else {
+			// In the case where a transaction included in a block proposal is malformed,
+			// we still want to return a default response to comet. This is because comet
+			// expects a response for each transaction included in a block proposal.
+			response = sdkerrors.ResponseExecTxResultWithEvents(
+				sdkerrors.ErrTxDecode,
+				0,
+				0,
+				nil,
+				false,
+			)
+		}
+
+		// check after every tx if we should abort
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			// continue
+		}
+
+		txResults = append(txResults, response)
+
+	}
+	return txResults
 }

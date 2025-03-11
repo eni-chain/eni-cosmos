@@ -12,7 +12,7 @@ import (
 	storetypes "cosmossdk.io/store/types"
 )
 
-var _ storetypes.MultiStore = multiStore{}
+//var _ storetypes.MultiStore = multiStore{}
 
 type multiStore struct {
 	kv map[storetypes.StoreKey]kvStore
@@ -236,6 +236,6 @@ func (kv kvStore) ReverseSubspaceIterator(prefix []byte) storetypes.Iterator {
 	panic("not implemented")
 }
 
-func NewCommitMultiStore() storetypes.CommitMultiStore {
-	return multiStore{kv: make(map[storetypes.StoreKey]kvStore)}
-}
+//func NewCommitMultiStore() storetypes.CommitMultiStore {
+//	return multiStore{kv: make(map[storetypes.StoreKey]kvStore)}
+//}

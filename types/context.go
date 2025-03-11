@@ -65,6 +65,7 @@ type Context struct {
 	streamingManager     storetypes.StreamingManager
 	cometInfo            comet.BlockInfo
 	headerInfo           header.Info
+	isParallelExec       bool
 
 	txIndex           int
 	txSum             [32]byte
@@ -116,6 +117,8 @@ func (c Context) DeliverTxCallback() func(Context)              { return c.deliv
 func (c Context) PendingTxChecker() abci.PendingTxChecker       { return c.pendingTxChecker }
 func (c Context) CheckTxCallback() func(Context, error)         { return c.checkTxCallback }
 func (c Context) ExpireTxHandler() func()                       { return c.expireTxHandler }
+func (c Context) IsParallelTx() bool                            { return c.isParallelExec }
+
 
 // Getters
 func (c Context) IsEVM() bool {
@@ -179,6 +182,11 @@ func (c Context) WithEVMEntryViaWasmdPrecompile(evmEntryViaWasmdPrecompile bool)
 
 func (c Context) WithEVMPrecompileCalledFromDelegateCall(evmPrecompileCalledFromDelegateCall bool) Context {
 	c.evmPrecompileCalledFromDelegateCall = evmPrecompileCalledFromDelegateCall
+	return c
+}
+
+func (c Context) WithParallelExec(isParallelExec bool) Context {
+	c.isParallelExec = isParallelExec
 	return c
 }
 

@@ -19,13 +19,15 @@ func (app *BaseApp) SimCheck(txEncoder sdk.TxEncoder, tx sdk.Tx) (sdk.GasInfo, *
 		return sdk.GasInfo{}, nil, errorsmod.Wrapf(sdkerrors.ErrInvalidRequest, "%s", err)
 	}
 
-	gasInfo, result, _, _, err := app.runTx(execModeCheck, bz)
+	ctx := app.getContextForTx(execModeCheck, bz)
+	gasInfo, result,_, _, err := app.runTx(ctx, execModeCheck, bz)
 	return gasInfo, result, err
 }
 
 // Simulate executes a tx in simulate mode to get result and gas info.
 func (app *BaseApp) Simulate(txBytes []byte) (sdk.GasInfo, *sdk.Result, error) {
-	gasInfo, result, _, _, err := app.runTx(execModeSimulate, txBytes)
+	ctx := app.getContextForTx(execModeSimulate, txBytes)
+	gasInfo, result, _,_, err := app.runTx(ctx,execModeSimulate, txBytes)
 	return gasInfo, result, err
 }
 
@@ -36,7 +38,8 @@ func (app *BaseApp) SimDeliver(txEncoder sdk.TxEncoder, tx sdk.Tx) (sdk.GasInfo,
 		return sdk.GasInfo{}, nil, errorsmod.Wrapf(sdkerrors.ErrInvalidRequest, "%s", err)
 	}
 
-	gasInfo, result, _, _, err := app.runTx(execModeFinalize, bz)
+	ctx := app.getContextForTx(execModeFinalize, bz)
+	gasInfo, result, _,_, err := app.runTx(ctx,execModeFinalize, bz)
 	return gasInfo, result, err
 }
 
@@ -47,7 +50,8 @@ func (app *BaseApp) SimTxFinalizeBlock(txEncoder sdk.TxEncoder, tx sdk.Tx) (sdk.
 		return sdk.GasInfo{}, nil, errorsmod.Wrapf(sdkerrors.ErrInvalidRequest, "%s", err)
 	}
 
-	gasInfo, result, _, _, err := app.runTx(execModeFinalize, bz)
+	ctx := app.getContextForTx(execModeFinalize, bz)
+	gasInfo, result,_, _, err := app.runTx(ctx,execModeFinalize, bz)
 	return gasInfo, result, err
 }
 

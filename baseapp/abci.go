@@ -347,7 +347,8 @@ func (app *BaseApp) CheckTx(req *abci.RequestCheckTx) (*abci.ResponseCheckTxV2, 
 		return nil, fmt.Errorf("unknown RequestCheckTx type: %s", req.Type)
 	}
 
-	gInfo, result, anteEvents, txCtx, err := app.runTx(mode, req.Tx)
+	ctx := app.getContextForTx(mode, req.Tx)
+	gInfo, result, anteEvents, txCtx, err := app.runTx(ctx, mode, req.Tx)
 	if err != nil {
 		return &abci.ResponseCheckTxV2{ResponseCheckTx: sdkerrors.ResponseCheckTxWithEvents(err, gInfo.GasWanted, gInfo.GasUsed, anteEvents, app.trace)}, nil
 	}
@@ -693,7 +694,21 @@ func (app *BaseApp) VerifyVoteExtension(req *abci.RequestVerifyVoteExtension) (r
 // only used to handle early cancellation, for anything related to state app.finalizeBlockState.Context()
 // must be used.
 func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.RequestFinalizeBlock) (*abci.ResponseFinalizeBlock, error) {
-	var events []abci.Event
+	var (
+		events     []abci.Event
+		batchTxReq sdk.DeliverTxBatchRequest
+	)
+
+	app.enableParallelTxExecution = true
+	if app.enableParallelTxExecution && !app.disableBlockGasMeter {
+		txGroup, gErr := app.GroupByTxs(app.processProposalState.Context(), req.Txs)
+		if gErr != nil {
+			app.logger.Error("parallel transaction grouping failed", "height", req.Height, "time", req.Time, "hash", fmt.Sprintf("%X", req.Hash), gErr, "gErr")
+			return nil, gErr
+		}
+		batchTxReq.OtherEntries = txGroup.otherEntries
+		batchTxReq.SeqEntries = txGroup.seqEntries
+	}
 
 	if err := app.checkHalt(req.Height, req.Time); err != nil {
 		return nil, err
@@ -704,9 +719,7 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	}
 
 	if app.cms.TracingEnabled() {
-		app.cms.SetTracingContext(storetypes.TraceContext(
-			map[string]any{"blockHeight": req.Height},
-		))
+		app.cms.SetTracingContext(map[string]any{"blockHeight": req.Height})
 	}
 
 	header := cmtproto.Header{
@@ -744,7 +757,8 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 			ValidatorsHash:  req.NextValidatorsHash,
 			ProposerAddress: req.ProposerAddress,
 			LastCommit:      req.DecidedLastCommit,
-		}))
+		}).
+		WithParallelExec(app.enableParallelTxExecution))
 
 	// GasMeter must be set after we get a context with updated consensus params.
 	gasMeter := app.getBlockGasMeter(app.finalizeBlockState.Context())
@@ -788,36 +802,7 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	//
 	// NOTE: Not all raw transactions may adhere to the sdk.Tx interface, e.g.
 	// vote extensions, so skip those.
-	txResults := make([]*abci.ExecTxResult, 0, len(req.Txs))
-	for i, rawTx := range req.Txs {
-		var response *abci.ExecTxResult
-		//devin: set tx index for receipt use
-		app.GetContextForFinalizeBlock(rawTx).WithTxIndex(i)
-		if _, err := app.txDecoder(rawTx); err == nil {
-			response = app.deliverTx(rawTx)
-		} else {
-			// In the case where a transaction included in a block proposal is malformed,
-			// we still want to return a default response to comet. This is because comet
-			// expects a response for each transaction included in a block proposal.
-			response = sdkerrors.ResponseExecTxResultWithEvents(
-				sdkerrors.ErrTxDecode,
-				0,
-				0,
-				nil,
-				false,
-			)
-		}
-
-		// check after every tx if we should abort
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-			// continue
-		}
-
-		txResults = append(txResults, response)
-	}
+	txResults := app.execTx(app.finalizeBlockState.Context(), batchTxReq, req.Txs)
 
 	if app.finalizeBlockState.ms.TracingEnabled() {
 		app.finalizeBlockState.ms = app.finalizeBlockState.ms.SetTracingContext(nil).(storetypes.CacheMultiStore)
