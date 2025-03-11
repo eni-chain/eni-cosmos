@@ -691,6 +691,17 @@ func (app *BaseApp) VerifyVoteExtension(req *abci.RequestVerifyVoteExtension) (r
 // must be used.
 func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.RequestFinalizeBlock, txGroups ...[][]byte) (*abci.ResponseFinalizeBlock, error) {
 	var events []abci.Event
+	var serialGroups [][]byte // todo execute in serial
+	var otherGroups [][]byte  // todo execute in parallel
+	for idx, txGroup := range txGroups {
+		if idx == 0 {
+			serialGroups = append(serialGroups, txGroup...)
+		} else if idx == 1 {
+			otherGroups = append(otherGroups, txGroup...)
+		} else {
+			app.logger.Error("unexpected number of tx groups")
+		}
+	}
 
 	if err := app.checkHalt(req.Height, req.Time); err != nil {
 		return nil, err
