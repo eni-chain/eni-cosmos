@@ -65,6 +65,7 @@ type Context struct {
 	streamingManager     storetypes.StreamingManager
 	cometInfo            comet.BlockInfo
 	headerInfo           header.Info
+	isParallelExec       bool
 
 	txIndex int
 	txSum   [32]byte
@@ -98,6 +99,7 @@ func (c Context) CometInfo() comet.BlockInfo                    { return c.comet
 func (c Context) HeaderInfo() header.Info                       { return c.headerInfo }
 func (c Context) TxIndex() int                                  { return c.txIndex }
 func (c Context) TxSum() [32]byte                               { return c.txSum }
+func (c Context) IsParallelTx() bool                            { return c.isParallelExec }
 
 // clone the header before returning
 func (c Context) BlockHeader() cmtproto.Header {
@@ -331,6 +333,11 @@ func (c Context) WithHeaderInfo(headerInfo header.Info) Context {
 	// Settime to UTC
 	headerInfo.Time = headerInfo.Time.UTC()
 	c.headerInfo = headerInfo
+	return c
+}
+
+func (c Context) WithParallelExec(isParallelExec bool) Context {
+	c.isParallelExec = isParallelExec
 	return c
 }
 

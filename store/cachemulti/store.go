@@ -32,6 +32,16 @@ type Store struct {
 	traceContext types.TraceContext
 }
 
+func (cms Store) SetKVStores(handler func(key types.StoreKey, s types.KVStore) types.CacheWrap) types.MultiStore {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (cms Store) StoreKeys() []types.StoreKey {
+	//TODO implement me
+	panic("implement me")
+}
+
 var _ types.CacheMultiStore = Store{}
 
 // NewFromKVStore creates a new Store object from a mapping of store keys to

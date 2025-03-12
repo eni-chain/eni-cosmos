@@ -3,6 +3,7 @@ package baseapp
 import (
 	"context"
 	"fmt"
+	tasks "github.com/cosmos/cosmos-sdk/task"
 	"math"
 	"sort"
 	"strconv"
@@ -1173,4 +1174,81 @@ func (app *BaseApp) Close() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchRequest) []*abci.ExecTxResult {
+	scheduler := tasks.NewScheduler(app.deliverTx)
+	txRes, err := scheduler.ProcessAll(ctx, req)
+	if err != nil {
+		app.logger.Error("error while processing scheduler", "err", err)
+		panic(err)
+	}
+	return txRes
+}
+
+func (app *BaseApp) ExecTx(ctx sdk.Context, otherTxs [][]byte, serialTxs [][]byte) []*abci.ExecTxResult {
+	if ctx.IsParallelTx() {
+		return app.ParallelProcessTxs(ctx, otherTxs, serialTxs)
+	}
+	// todo
+	allTxs := append(otherTxs, serialTxs...)
+	return app.SerialProcessTxs(ctx, allTxs)
+}
+
+func (app *BaseApp) ParallelProcessTxs(ctx sdk.Context, otherTxs [][]byte, serialTxs [][]byte) []*abci.ExecTxResult {
+	index := 0
+	otherEntries := make([]*sdk.DeliverTxEntry, len(otherTxs))
+	for i, tx := range otherTxs {
+		otherEntries[i].TxIndex = index
+		otherEntries[i].Tx = tx
+		index++
+	}
+
+	seqEntries := make([]*sdk.DeliverTxEntry, len(serialTxs))
+	for i, tx := range serialTxs {
+		seqEntries[i].TxIndex = index
+		seqEntries[i].Tx = tx
+		index++
+	}
+
+	req := sdk.DeliverTxBatchRequest{
+		OtherEntries: otherEntries,
+		SeqEntries:   seqEntries,
+	}
+
+	return app.deliverTxBatch(ctx, req)
+}
+
+func (app *BaseApp) SerialProcessTxs(ctx sdk.Context, txs [][]byte) []*abci.ExecTxResult {
+	txResults := make([]*abci.ExecTxResult, 0, len(txs))
+	for _, rawTx := range txs {
+		var response *abci.ExecTxResult
+
+		if _, err := app.txDecoder(rawTx); err == nil {
+			response = app.deliverTx(rawTx)
+		} else {
+			// In the case where a transaction included in a block proposal is malformed,
+			// we still want to return a default response to comet. This is because comet
+			// expects a response for each transaction included in a block proposal.
+			response = sdkerrors.ResponseExecTxResultWithEvents(
+				sdkerrors.ErrTxDecode,
+				0,
+				0,
+				nil,
+				false,
+			)
+		}
+
+		// check after every tx if we should abort
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			// continue
+		}
+
+		txResults = append(txResults, response)
+
+	}
+	return txResults
 }
