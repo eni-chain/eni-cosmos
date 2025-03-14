@@ -66,8 +66,22 @@ type Context struct {
 	cometInfo            comet.BlockInfo
 	headerInfo           header.Info
 
-	txIndex int
-	txSum   [32]byte
+	txIndex           int
+	txSum             [32]byte
+	pendingTxChecker  abci.PendingTxChecker // Checker for pending transaction, only relevant in CheckTx
+	checkTxCallback   func(Context, error)  // callback to make at the end of CheckTx. Input param is the error (nil-able) of `runMsgs`
+	deliverTxCallback func(Context)         // callback to make at the end of DeliverTx.
+	expireTxHandler   func()                // callback that the mempool invokes when a tx is expired
+
+	// EVM properties
+	isEvm                               bool   // EVM transaction flag
+	evmNonce                            uint64 // EVM Transaction nonce
+	evmSenderAddress                    string // EVM Sender address
+	evmTxHash                           string // EVM TX hash
+	evmVmError                          string // EVM VM error during execution
+	evmEntryViaWasmdPrecompile          bool   // EVM is entered via wasmd precompile directly
+	evmPrecompileCalledFromDelegateCall bool   // EVM precompile is called from a delegate call
+
 }
 
 // Proposed rename, not done to avoid API breakage
@@ -98,6 +112,75 @@ func (c Context) CometInfo() comet.BlockInfo                    { return c.comet
 func (c Context) HeaderInfo() header.Info                       { return c.headerInfo }
 func (c Context) TxIndex() int                                  { return c.txIndex }
 func (c Context) TxSum() [32]byte                               { return c.txSum }
+func (c Context) DeliverTxCallback() func(Context)              { return c.deliverTxCallback }
+func (c Context) PendingTxChecker() abci.PendingTxChecker       { return c.pendingTxChecker }
+func (c Context) CheckTxCallback() func(Context, error)         { return c.checkTxCallback }
+func (c Context) ExpireTxHandler() func()                       { return c.expireTxHandler }
+
+// Getters
+func (c Context) IsEVM() bool {
+	return c.isEvm
+}
+
+func (c Context) EVMNonce() uint64 {
+	return c.evmNonce
+}
+
+func (c Context) EVMSenderAddress() string {
+	return c.evmSenderAddress
+}
+
+func (c Context) EVMTxHash() string {
+	return c.evmTxHash
+}
+
+func (c Context) EVMVmError() string {
+	return c.evmVmError
+}
+
+func (c Context) EVMEntryViaWasmdPrecompile() bool {
+	return c.evmEntryViaWasmdPrecompile
+}
+
+func (c Context) EVMPrecompileCalledFromDelegateCall() bool {
+	return c.evmPrecompileCalledFromDelegateCall
+}
+
+// Setters
+func (c Context) WithIsEVM(evm bool) Context {
+	c.isEvm = evm
+	return c
+}
+
+func (c Context) WithEVMNonce(evmNonce uint64) Context {
+	c.evmNonce = evmNonce
+	return c
+}
+
+func (c Context) WithEVMSenderAddress(evmSenderAddress string) Context {
+	c.evmSenderAddress = evmSenderAddress
+	return c
+}
+
+func (c Context) WithEVMTxHash(evmTxHash string) Context {
+	c.evmTxHash = evmTxHash
+	return c
+}
+
+func (c Context) WithEVMVmError(evmVmError string) Context {
+	c.evmVmError = evmVmError
+	return c
+}
+
+func (c Context) WithEVMEntryViaWasmdPrecompile(evmEntryViaWasmdPrecompile bool) Context {
+	c.evmEntryViaWasmdPrecompile = evmEntryViaWasmdPrecompile
+	return c
+}
+
+func (c Context) WithEVMPrecompileCalledFromDelegateCall(evmPrecompileCalledFromDelegateCall bool) Context {
+	c.evmPrecompileCalledFromDelegateCall = evmPrecompileCalledFromDelegateCall
+	return c
+}
 
 // clone the header before returning
 func (c Context) BlockHeader() cmtproto.Header {
@@ -331,6 +414,22 @@ func (c Context) WithHeaderInfo(headerInfo header.Info) Context {
 	// Settime to UTC
 	headerInfo.Time = headerInfo.Time.UTC()
 	c.headerInfo = headerInfo
+	return c
+}
+func (c Context) WithDeliverTxCallback(deliverTxCallback func(Context)) Context {
+	c.deliverTxCallback = deliverTxCallback
+	return c
+}
+func (c Context) WithPendingTxChecker(pendingTxChecker abci.PendingTxChecker) Context {
+	c.pendingTxChecker = pendingTxChecker
+	return c
+}
+func (c Context) WithCheckTxCallback(checkTxCallback func(Context, error)) Context {
+	c.checkTxCallback = checkTxCallback
+	return c
+}
+func (c Context) WithExpireTxHandler(expireTxHandler func()) Context {
+	c.expireTxHandler = expireTxHandler
 	return c
 }
 

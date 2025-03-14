@@ -24,7 +24,7 @@ func (w cometABCIWrapper) Query(ctx context.Context, req *abci.RequestQuery) (*a
 	return w.app.Query(ctx, req)
 }
 
-func (w cometABCIWrapper) CheckTx(_ context.Context, req *abci.RequestCheckTx) (*abci.ResponseCheckTx, error) {
+func (w cometABCIWrapper) CheckTx(_ context.Context, req *abci.RequestCheckTx) (*abci.ResponseCheckTxV2, error) {
 	return w.app.CheckTx(req)
 }
 
