@@ -184,7 +184,11 @@ func (c Context) WithEVMPrecompileCalledFromDelegateCall(evmPrecompileCalledFrom
 
 // clone the header before returning
 func (c Context) BlockHeader() cmtproto.Header {
-	msg := proto.Clone(&c.header).(*cmtproto.Header)
+	t := c.header.Time
+	h := c.header
+	h.Time = time.Time{} //set time to zero, so proto.Clone can work
+	msg := proto.Clone(&h).(*cmtproto.Header)
+	msg.Time = t //set time back
 	return *msg
 }
 

@@ -84,7 +84,7 @@ func (s *contextTestSuite) TestContextWithCustom() {
 	ctrl := gomock.NewController(s.T())
 	s.T().Cleanup(ctrl.Finish)
 
-	header := cmtproto.Header{}
+	header := cmtproto.Header{Time: time.Now().UTC()}
 	height := int64(1)
 	chainid := "chainid"
 	ischeck := true
