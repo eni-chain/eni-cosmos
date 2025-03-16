@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	storetypes "cosmossdk.io/store/types"
 	gogogrpc "github.com/cosmos/gogoproto/grpc"
 	"github.com/cosmos/gogoproto/proto"
 	"google.golang.org/grpc"
@@ -183,7 +184,11 @@ func (msr *MsgServiceRouter) registerMsgServiceHandler(sd *grpc.ServiceDesc, met
 
 		if msr.circuitBreaker != nil {
 			msgURL := sdk.MsgTypeURL(msg)
+			// Devin: We temporarily replace the gas meter with an infinite one to avoid gas consumption
+			originalGasMeter := ctx.GasMeter()
+			ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
 			isAllowed, err := msr.circuitBreaker.IsAllowed(ctx, msgURL)
+			ctx = ctx.WithGasMeter(originalGasMeter)
 			if err != nil {
 				return nil, err
 			}
