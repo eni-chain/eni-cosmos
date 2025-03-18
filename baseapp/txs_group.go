@@ -46,47 +46,70 @@ func NewTxGroup(txDecoder sdk.TxDecoder) *TxGroup {
 func (app *BaseApp) GroupByTxs(ctx sdk.Context, txs [][]byte) (*TxGroup, error) {
 	txGroup := NewTxGroup(app.TxDecode)
 	wg := sync.WaitGroup{}
+	// protected parallel append
+	mu := sync.Mutex{}
+	// record failed transactions
+	failedTxs := make(map[int]string)
+
 	for i, tx := range txs {
 		wg.Add(1)
 		go func(idx int, encodedTx []byte) {
 			defer wg.Done()
 			defer func() {
 				if err := recover(); err != nil {
-					ctx.Logger().Error(fmt.Sprintf("encountered panic during transaction decoding: %s", err))
+					mu.Lock()
+					failedTxs[idx] = fmt.Sprintf("panic: %v", err)
+					mu.Unlock()
+					ctx.Logger().Error(fmt.Sprintf("panic during transaction decoding at index %d: %v", idx, err))
 				}
 			}()
 
 			// Decode transaction
 			typedTx, err := app.TxDecode(encodedTx)
 			if err != nil {
+				mu.Lock()
+				failedTxs[idx] = fmt.Sprintf("decode error: %s", err)
+				mu.Unlock()
 				ctx.Logger().Error(fmt.Sprintf("error decoding transaction at index %d due to %s", idx, err))
 				return
 			}
 
-			// check is evm transaction
+			// Check if it's an EVM transaction
 			if isEVM := IsEVMMessage(typedTx); isEVM {
-				// get cached value from transaction
 				msgData, err := txGroup.FilterEvmTxs(typedTx, encodedTx)
 				if err != nil {
+					mu.Lock()
+					failedTxs[idx] = fmt.Sprintf("filter error: %s", err)
+					mu.Unlock()
 					ctx.Logger().Error(fmt.Sprintf("error getting cached value from transaction at index %d", idx))
 					return
 				}
 
-				// get tx meta and nonce from transaction
 				txMeta, err := txGroup.DecodeEvmTxs(msgData, idx, encodedTx)
 				if err != nil {
+					mu.Lock()
+					failedTxs[idx] = fmt.Sprintf("decode meta error: %s", err)
+					mu.Unlock()
 					ctx.Logger().Error(fmt.Sprintf("error getting tx meta and nonce from transaction at index %d due to %s", idx, err))
 					return
 				}
 
+				mu.Lock()
 				txGroup.evmTxMetas = append(txGroup.evmTxMetas, txMeta)
+				mu.Unlock()
 			} else {
-				// other tx can be processed in parallel
+				mu.Lock()
 				txGroup.otherEntries = append(txGroup.otherEntries, &sdk.DeliverTxEntry{Tx: encodedTx, TxIndex: idx})
+				mu.Unlock()
 			}
 		}(i, tx)
 	}
 	wg.Wait()
+
+	// check failed transactions
+	if len(failedTxs) > 0 {
+		ctx.Logger().Error(fmt.Sprintf("Found %d failed transactions: %v", len(failedTxs), failedTxs))
+	}
 
 	// sort evm transactions by global nonce
 	if err := txGroup.SortGlobalNonce(); err != nil {
