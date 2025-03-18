@@ -17,7 +17,6 @@ build
 dist
 tools-stamp
 buf-stamp
-artifacts
 
 # Go
 go.work
