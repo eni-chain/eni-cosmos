@@ -792,7 +792,8 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	for i, rawTx := range req.Txs {
 		var response *abci.ExecTxResult
 		//devin: set tx index for receipt use
-		app.GetContextForFinalizeBlock(rawTx).WithTxIndex(i)
+		myctx := app.finalizeBlockState.Context().WithTxIndex(i)
+		app.finalizeBlockState.SetContext(myctx)
 		if _, err := app.txDecoder(rawTx); err == nil {
 			response = app.deliverTx(rawTx)
 		} else {
