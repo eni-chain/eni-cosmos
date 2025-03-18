@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	modulev1 "cosmossdk.io/api/cosmos/evm/module"
 	"encoding/json"
 	"fmt"
 
@@ -306,4 +307,11 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 	)
 
 	return ModuleOutputs{EvmKeeper: k, Module: m}
+}
+
+func init() {
+	appmodule.Register(
+		&modulev1.Module{},
+		appmodule.Provide(ProvideModule),
+	)
 }
