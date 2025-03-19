@@ -6,8 +6,6 @@ import (
 	//evmante "github.com/cosmos/cosmos-sdk/x/evm/ante"
 	"github.com/cosmos/cosmos-sdk/x/evm/types"
 	"github.com/cosmos/cosmos-sdk/x/evm/types/ethtx"
-
-	//ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"sort"
 	"sync"
@@ -117,9 +115,9 @@ func (app *BaseApp) GroupByTxs(ctx sdk.Context, txs [][]byte) (*TxGroup, error) 
 	}
 
 	// sort evm transactions by global nonce
-	if err := txGroup.SortGlobalNonce(); err != nil {
-		return nil, err
-	}
+	//if err := txGroup.SortGlobalNonce(); err != nil {
+	//	return nil, err
+	//}
 
 	// group by address
 	if err := txGroup.GroupByAddressTxs(); err != nil {
@@ -141,7 +139,7 @@ func (t *TxGroup) FilterEvmTxs(ctx sdk.Context, typedTx sdk.Tx, encodedTx []byte
 	//if err := evmante.Preprocess(ctx, msg); err != nil {
 	//	errMsg := fmt.Sprintf("error preprocessing EVM tx due to %s", err)
 	//	ctx.Logger().Error(errMsg)
-	//	return nil, fmt.Errorf(errMsg)
+	//	return nil, evmSender, fmt.Errorf(errMsg)
 	//}
 
 	for _, msg := range typedTx.GetMsgs() {
@@ -206,13 +204,13 @@ func (t *TxGroup) SortGlobalNonce() error {
 func (t *TxGroup) GroupByAddressTxs() error {
 	groups := make(map[string][]*TxMeta)
 	for _, meta := range t.evmTxMetas {
-		groups[meta.To] = append(groups[meta.To], meta)
+		groups[meta.From] = append(groups[meta.From], meta)
 	}
 
 	// Sort by nonce in each group
-	for to := range groups {
-		sort.Slice(groups[to], func(i, j int) bool {
-			return groups[to][i].Nonce < groups[to][j].Nonce
+	for from := range groups {
+		sort.Slice(groups[from], func(i, j int) bool {
+			return groups[from][i].Nonce < groups[from][j].Nonce
 		})
 	}
 	t.groups = groups
