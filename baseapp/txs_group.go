@@ -3,7 +3,6 @@ package baseapp
 import (
 	"fmt"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	//evmante "github.com/cosmos/cosmos-sdk/x/evm/ante"
 	"github.com/cosmos/cosmos-sdk/x/evm/types"
 	"github.com/cosmos/cosmos-sdk/x/evm/types/ethtx"
 	"github.com/ethereum/go-ethereum/log"
@@ -135,17 +134,16 @@ func (app *BaseApp) GroupByTxs(ctx sdk.Context, txs [][]byte) (*TxGroup, error) 
 func (t *TxGroup) FilterEvmTxs(ctx sdk.Context, typedTx sdk.Tx, encodedTx []byte) (interface{}, string, error) {
 	var evmSender string
 	msg := MustGetEVMTransactionMessage(typedTx)
-	// todo fix import cycle
-	//if err := evmante.Preprocess(ctx, msg); err != nil {
-	//	errMsg := fmt.Sprintf("error preprocessing EVM tx due to %s", err)
-	//	ctx.Logger().Error(errMsg)
-	//	return nil, evmSender, fmt.Errorf(errMsg)
-	//}
-
 	for _, msg := range typedTx.GetMsgs() {
 		switch txMsg := msg.(type) {
 		case *types.MsgEVMTransaction:
-			evmSender = txMsg.Derived.SenderEVMAddr.Hex()
+			sender, err := txMsg.GetEvmSender()
+			if err != nil {
+				errMsg := fmt.Sprintf("error getting evm sender due to %s", err)
+				ctx.Logger().Error(errMsg)
+				return nil, evmSender, fmt.Errorf(errMsg)
+			}
+			evmSender = sender.Hex()
 		default:
 			continue
 		}
