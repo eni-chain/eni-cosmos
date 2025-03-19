@@ -3,7 +3,11 @@ package baseapp
 import (
 	"fmt"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/tx/ethtx"
+	//evmante "github.com/cosmos/cosmos-sdk/x/evm/ante"
+	"github.com/cosmos/cosmos-sdk/x/evm/types"
+	"github.com/cosmos/cosmos-sdk/x/evm/types/ethtx"
+
+	//ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"sort"
 	"sync"
@@ -27,6 +31,7 @@ type TxGroup struct {
 
 type TxMeta struct {
 	RawTx []byte
+	From  string
 	To    string
 	Nonce uint64
 	Data  []byte
@@ -76,7 +81,7 @@ func (app *BaseApp) GroupByTxs(ctx sdk.Context, txs [][]byte) (*TxGroup, error) 
 
 			// Check if it's an EVM transaction
 			if isEVM := IsEVMMessage(typedTx); isEVM {
-				msgData, err := txGroup.FilterEvmTxs(typedTx, encodedTx)
+				msgData, sender, err := txGroup.FilterEvmTxs(ctx, typedTx, encodedTx)
 				if err != nil {
 					mu.Lock()
 					failedTxs[idx] = fmt.Sprintf("filter error: %s", err)
@@ -85,7 +90,7 @@ func (app *BaseApp) GroupByTxs(ctx sdk.Context, txs [][]byte) (*TxGroup, error) 
 					return
 				}
 
-				txMeta, err := txGroup.DecodeEvmTxs(msgData, idx, encodedTx)
+				txMeta, err := txGroup.DecodeEvmTxs(msgData, sender, idx, encodedTx)
 				if err != nil {
 					mu.Lock()
 					failedTxs[idx] = fmt.Sprintf("decode meta error: %s", err)
@@ -129,18 +134,36 @@ func (app *BaseApp) GroupByTxs(ctx sdk.Context, txs [][]byte) (*TxGroup, error) 
 }
 
 // FilterEvmTxs filter evm transactions and cache value
-func (t *TxGroup) FilterEvmTxs(typedTx sdk.Tx, encodedTx []byte) (interface{}, error) {
+func (t *TxGroup) FilterEvmTxs(ctx sdk.Context, typedTx sdk.Tx, encodedTx []byte) (interface{}, string, error) {
+	var evmSender string
 	msg := MustGetEVMTransactionMessage(typedTx)
+	// todo fix import cycle
+	//if err := evmante.Preprocess(ctx, msg); err != nil {
+	//	errMsg := fmt.Sprintf("error preprocessing EVM tx due to %s", err)
+	//	ctx.Logger().Error(errMsg)
+	//	return nil, fmt.Errorf(errMsg)
+	//}
+
+	for _, msg := range typedTx.GetMsgs() {
+		switch txMsg := msg.(type) {
+		case *types.MsgEVMTransaction:
+			evmSender = txMsg.Derived.SenderEVMAddr.Hex()
+		default:
+			continue
+		}
+	}
+
 	cachedValue := msg.Data.GetCachedValue()
 	if cachedValue == nil {
-		return nil, fmt.Errorf("error getting cached value")
+		return nil, evmSender, fmt.Errorf("error getting cached value")
 	}
-	return cachedValue, nil
+	return cachedValue, evmSender, nil
 }
 
 // DecodeEvmTxs decode evm transactions and get tx meta and nonce
-func (t *TxGroup) DecodeEvmTxs(msgData interface{}, idx int, rawTx []byte) (*TxMeta, error) {
+func (t *TxGroup) DecodeEvmTxs(msgData interface{}, sender string, idx int, rawTx []byte) (*TxMeta, error) {
 	txMeta := &TxMeta{
+		From:  sender,
 		RawTx: rawTx,
 		idx:   idx,
 	}
@@ -223,11 +246,12 @@ func (t *TxGroup) GroupSequentialTxs() error {
 	return nil
 }
 
-func MustGetEVMTransactionMessage(tx sdk.Tx) *ethtx.MsgEVMTransaction {
+func MustGetEVMTransactionMessage(tx sdk.Tx) *types.MsgEVMTransaction {
+
 	if len(tx.GetMsgs()) != 1 {
 		panic("EVM transaction must have exactly 1 message")
 	}
-	msg, ok := tx.GetMsgs()[0].(*ethtx.MsgEVMTransaction)
+	msg, ok := tx.GetMsgs()[0].(*types.MsgEVMTransaction)
 	if !ok {
 		panic("not EVM message")
 	}
@@ -235,20 +259,20 @@ func MustGetEVMTransactionMessage(tx sdk.Tx) *ethtx.MsgEVMTransaction {
 }
 
 func IsEVMMessage(tx sdk.Tx) bool {
-	hasEVMMsg := false
+	hasEvmMsg := false
 	for _, msg := range tx.GetMsgs() {
 		switch msg.(type) {
-		case *ethtx.MsgEVMTransaction:
-			hasEVMMsg = true
+		case *types.MsgEVMTransaction:
+			hasEvmMsg = true
 		default:
 			continue
 		}
 	}
 
-	if hasEVMMsg && len(tx.GetMsgs()) != 1 {
+	if hasEvmMsg && len(tx.GetMsgs()) != 1 {
 		log.Error("EVM tx must have exactly one message")
 		return false
 	}
 
-	return hasEVMMsg
+	return hasEvmMsg
 }
