@@ -7720,10 +7720,16 @@ type Params struct {
 	// Minimum expedited deposit for a proposal to enter voting period.
 	ExpeditedMinDeposit []*v1beta1.Coin `protobuf:"bytes,12,rep,name=expedited_min_deposit,json=expeditedMinDeposit,proto3" json:"expedited_min_deposit,omitempty"`
 	// burn deposits if a proposal does not meet quorum
+	//
+	// Since: cosmos-sdk 0.47
 	BurnVoteQuorum bool `protobuf:"varint,13,opt,name=burn_vote_quorum,json=burnVoteQuorum,proto3" json:"burn_vote_quorum,omitempty"`
 	// burn deposits if the proposal does not enter voting period
+	//
+	// Since: cosmos-sdk 0.47
 	BurnProposalDepositPrevote bool `protobuf:"varint,14,opt,name=burn_proposal_deposit_prevote,json=burnProposalDepositPrevote,proto3" json:"burn_proposal_deposit_prevote,omitempty"`
 	// burn deposits if quorum with vote type no_veto is met
+	//
+	// Since: cosmos-sdk 0.47
 	BurnVoteVeto bool `protobuf:"varint,15,opt,name=burn_vote_veto,json=burnVoteVeto,proto3" json:"burn_vote_veto,omitempty"`
 	// The ratio representing the proportion of the deposit value minimum that must be met when making a deposit.
 	// Default value: 0.01. Meaning that for a chain with a min_deposit of 100stake, a deposit of 1stake would be
