@@ -7,6 +7,9 @@ import (
 
 // GetEvmSender returns the sender address of the transaction.
 func (m *MsgEVMTransaction) GetEvmSender() (common.Address, error) {
+	if m.Derived != nil && m.Derived.SenderEVMAddr != (common.Address{}) {
+		return m.Derived.SenderEVMAddr, nil
+	}
 	txData, err := UnpackTxData(m.Data)
 	if err != nil {
 		return common.Address{}, err
