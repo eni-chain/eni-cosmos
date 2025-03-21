@@ -10,14 +10,6 @@ import (
 	"sync"
 )
 
-type TxsGrouper interface {
-	FilterEvmTxs(typedTx sdk.Tx, encodedTx []byte) (interface{}, error)
-	DecodeEvmTxs(msgData interface{}, idx int, rawTx []byte) (*TxMeta, error)
-	SortGlobalNonce() error
-	GroupByAddressTxs() error
-	GroupSequentialTxs() error
-}
-
 type TxGroup struct {
 	evmTxMetas   []*TxMeta
 	txDecoder    sdk.TxDecoder
@@ -76,8 +68,11 @@ func (app *BaseApp) GroupByTxs(ctx sdk.Context, txs [][]byte) (*TxGroup, error) 
 				return
 			}
 
+			// TODO optimize after
+			// default to parallel processing
+			var parallel = false
 			// Check if it's an EVM transaction
-			if isEVM := IsEVMMessage(typedTx); isEVM {
+			if isEVM := IsEVMMessage(typedTx); isEVM && parallel {
 				msgData, sender, err := txGroup.FilterEvmTxs(ctx, typedTx, encodedTx)
 				if err != nil {
 					mu.Lock()
@@ -112,11 +107,6 @@ func (app *BaseApp) GroupByTxs(ctx sdk.Context, txs [][]byte) (*TxGroup, error) 
 	if len(failedTxs) > 0 {
 		ctx.Logger().Error(fmt.Sprintf("Found %d failed transactions: %v", len(failedTxs), failedTxs))
 	}
-
-	// sort evm transactions by global nonce
-	//if err := txGroup.SortGlobalNonce(); err != nil {
-	//	return nil, err
-	//}
 
 	// group by address
 	if err := txGroup.GroupByAddressTxs(); err != nil {
@@ -188,14 +178,6 @@ func (t *TxGroup) DecodeEvmTxs(msgData interface{}, sender string, idx int, rawT
 	}
 
 	return txMeta, nil
-}
-
-// SortGlobalNonce sort evm transactions by global nonce
-func (t *TxGroup) SortGlobalNonce() error {
-	sort.Slice(t.evmTxMetas, func(i, j int) bool {
-		return t.evmTxMetas[i].Nonce < t.evmTxMetas[j].Nonce
-	})
-	return nil
 }
 
 // GroupByAddressTxs group evm transactions by address and sort by nonce
