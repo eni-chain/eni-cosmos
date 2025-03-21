@@ -3,14 +3,12 @@ package oe
 import (
 	"bytes"
 	"context"
+	"cosmossdk.io/log"
 	"encoding/hex"
+	abci "github.com/cometbft/cometbft/abci/types"
 	"math/rand"
 	"sync"
 	"time"
-
-	abci "github.com/cometbft/cometbft/abci/types"
-
-	"cosmossdk.io/log"
 )
 
 // FinalizeBlockFunc is the function that is called by the OE to finalize the

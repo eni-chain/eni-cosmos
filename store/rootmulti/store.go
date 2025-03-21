@@ -76,6 +76,18 @@ type Store struct {
 	commitHeader        cmtproto.Header
 }
 
+func (rs *Store) SetKVStores(handler func(key types.StoreKey, s types.KVStore) types.CacheWrap) types.MultiStore {
+	panic("SetKVStores is not implemented for rootmulti")
+}
+
+func (rs *Store) StoreKeys() []types.StoreKey {
+	res := make([]types.StoreKey, len(rs.keysByName))
+	for _, sk := range rs.keysByName {
+		res = append(res, sk)
+	}
+	return res
+}
+
 var (
 	_ types.CommitMultiStore = (*Store)(nil)
 	_ types.Queryable        = (*Store)(nil)

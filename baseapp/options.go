@@ -378,6 +378,11 @@ func (app *BaseApp) SetDisableBlockGasMeter(disableBlockGasMeter bool) {
 	app.disableBlockGasMeter = disableBlockGasMeter
 }
 
+// SetEnableParallelTxExecution sets the disableBlockGasMeter flag for the BaseApp.
+func (app *BaseApp) SetEnableParallelTxExecution(enableParallelTxExecution bool) {
+	app.enableParallelTxExecution = enableParallelTxExecution
+}
+
 // SetMsgServiceRouter sets the MsgServiceRouter of a BaseApp.
 func (app *BaseApp) SetMsgServiceRouter(msgServiceRouter *MsgServiceRouter) {
 	app.msgServiceRouter = msgServiceRouter
