@@ -699,17 +699,6 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 		batchTxReq sdk.DeliverTxBatchRequest
 	)
 
-	app.enableParallelTxExecution = true
-	if app.enableParallelTxExecution && !app.disableBlockGasMeter {
-		txGroup, gErr := app.GroupByTxs(app.processProposalState.Context(), req.Txs)
-		if gErr != nil {
-			app.logger.Error("parallel transaction grouping failed", "height", req.Height, "time", req.Time, "hash", fmt.Sprintf("%X", req.Hash), gErr, "gErr")
-			return nil, gErr
-		}
-		batchTxReq.OtherEntries = txGroup.otherEntries
-		batchTxReq.SeqEntries = txGroup.seqEntries
-	}
-
 	if err := app.checkHalt(req.Height, req.Time); err != nil {
 		return nil, err
 	}
@@ -736,6 +725,18 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	// given that during block replay ProcessProposal is not executed by CometBFT.
 	if app.finalizeBlockState == nil {
 		app.setState(execModeFinalize, header)
+	}
+
+	// todo remove this check after we have a better way to handle replays
+	app.enableParallelTxExecution = true
+	if app.enableParallelTxExecution && !app.disableBlockGasMeter {
+		txGroup, gErr := app.GroupByTxs(app.finalizeBlockState.Context(), req.Txs)
+		if gErr != nil {
+			app.logger.Error("parallel transaction grouping failed", "height", req.Height, "time", req.Time, "hash", fmt.Sprintf("%X", req.Hash), gErr, "gErr")
+			return nil, gErr
+		}
+		batchTxReq.OtherEntries = txGroup.otherEntries
+		batchTxReq.SeqEntries = txGroup.seqEntries
 	}
 
 	// Context is now updated with Header information.
