@@ -95,6 +95,7 @@ func (acc *BaseAccount) SetPubKey(pubKey cryptotypes.PubKey) error {
 
 // GetAccountNumber - Implements AccountI
 func (acc BaseAccount) GetAccountNumber() uint64 {
+	fmt.Println("GetAccountNumber", acc.AccountNumber, acc.String())
 	return acc.AccountNumber
 }
 

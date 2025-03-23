@@ -53,6 +53,7 @@ type Keeper struct {
 	//wasmKeeper     *wasmkeeper.PermissionedKeeper
 	//wasmViewKeeper *wasmkeeper.Keeper
 
+	rwSetMutex                   *sync.RWMutex
 	cachedFeeCollectorAddressMtx *sync.RWMutex
 	cachedFeeCollectorAddress    *common.Address
 	nonceMx                      *sync.RWMutex
@@ -94,6 +95,7 @@ func NewKeeper(
 	if !paramstore.HasKeyTable() {
 		paramstore = paramstore.WithKeyTable(types.ParamKeyTable())
 	}
+	fmt.Println("new keeper///...")
 	k := &Keeper{
 		storeKey:          storeKey,
 		transientStoreKey: transientStoreKey,
@@ -109,6 +111,7 @@ func NewKeeper(
 		pendingTxs:                   make(map[string][]*PendingTx),
 		nonceMx:                      &sync.RWMutex{},
 		cachedFeeCollectorAddressMtx: &sync.RWMutex{},
+		rwSetMutex:                   &sync.RWMutex{},
 		keyToNonce:                   make(map[tmtypes.TxKey]*AddressNoncePair),
 		//receiptStore:                 receiptStateStore,
 	}

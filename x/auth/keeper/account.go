@@ -2,12 +2,26 @@ package keeper
 
 import (
 	"context"
-	"errors"
-
 	"cosmossdk.io/collections"
-
+	"errors"
+	"fmt"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"runtime"
 )
+
+func printCallers() {
+	pcs := make([]uintptr, 5)
+	n := runtime.Callers(2, pcs)
+	frames := runtime.CallersFrames(pcs[:n])
+
+	for {
+		frame, more := frames.Next()
+		fmt.Printf("函数: %s\n文件: %s:%d\n\n", frame.Function, frame.File, frame.Line)
+		if !more {
+			break
+		}
+	}
+}
 
 // NewAccountWithAddress implements AccountKeeperI.
 func (ak AccountKeeper) NewAccountWithAddress(ctx context.Context, addr sdk.AccAddress) sdk.AccountI {
@@ -22,9 +36,13 @@ func (ak AccountKeeper) NewAccountWithAddress(ctx context.Context, addr sdk.AccA
 
 // NewAccount sets the next account number to a given account interface
 func (ak AccountKeeper) NewAccount(ctx context.Context, acc sdk.AccountI) sdk.AccountI {
-	if err := acc.SetAccountNumber(ak.NextAccountNumber(ctx)); err != nil {
+	n := ak.NextAccountNumber(ctx)
+	if err := acc.SetAccountNumber(n); err != nil {
 		panic(err)
 	}
+
+	fmt.Println("NewAccount, xx", n, "acc", acc.String(), "acc number", acc.GetAccountNumber())
+	//printCallers()
 
 	return acc
 }

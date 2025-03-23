@@ -3,23 +3,34 @@ package keeper
 import (
 	//"cosmossdk.io/store/prefix"
 	"cosmossdk.io/store/prefix"
+	"fmt"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/evm/types"
 	"github.com/ethereum/go-ethereum/common"
 )
 
 func (k *Keeper) SetAddressMapping(ctx sdk.Context, eniAddress sdk.AccAddress, evmAddress common.Address) {
+	defer func() {
+		fmt.Println("exit SetAddressMapping--------------")
+	}()
 	store := ctx.KVStore(k.storeKey)
 	store.Set(types.EVMAddressToEniAddressKey(evmAddress), eniAddress)
 	store.Set(types.EniAddressToEVMAddressKey(eniAddress), evmAddress[:])
 	if !k.accountKeeper.HasAccount(ctx, eniAddress) {
+		k.rwSetMutex.Lock()
+		fmt.Println("enter SetAddressMapping, rwset lock after--------------")
+		defer k.rwSetMutex.Unlock()
 		k.accountKeeper.SetAccount(ctx, k.accountKeeper.NewAccountWithAddress(ctx, eniAddress))
+	} else {
+		fmt.Println("has account")
 	}
+
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
 		types.EventTypeAddressAssociated,
 		sdk.NewAttribute(types.AttributeKeyEniAddress, eniAddress.String()),
 		sdk.NewAttribute(types.AttributeKeyEvmAddress, evmAddress.Hex()),
 	))
+
 }
 
 func (k *Keeper) DeleteAddressMapping(ctx sdk.Context, eniAddress sdk.AccAddress, evmAddress common.Address) {
