@@ -17,7 +17,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/utils"
-	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	"github.com/cosmos/cosmos-sdk/x/evm/blocktest"
 	"github.com/cosmos/cosmos-sdk/x/evm/exported"
@@ -47,7 +46,7 @@ type Keeper struct {
 	msgs      []*types.MsgEVMTransaction
 
 	bankKeeper    bankkeeper.Keeper
-	accountKeeper *authkeeper.AccountKeeper
+	accountKeeper types.AccountKeeper
 	stakingKeeper *stakingkeeper.Keeper
 	//transferKeeper ibctransferkeeper.Keeper
 	//wasmKeeper     *wasmkeeper.PermissionedKeeper
@@ -87,7 +86,7 @@ type PendingTx struct {
 
 func NewKeeper(
 	storeKey storetypes.StoreKey, transientStoreKey storetypes.StoreKey, paramstore exported.Subspace, //receiptStateStore enidbtypes.StateStore,
-	bankKeeper bankkeeper.Keeper, accountKeeper *authkeeper.AccountKeeper, stakingKeeper *stakingkeeper.Keeper,
+	bankKeeper bankkeeper.Keeper, accountKeeper types.AccountKeeper, stakingKeeper *stakingkeeper.Keeper,
 	cdc codec.BinaryCodec, logger log.Logger,
 	// transferKeeper ibctransferkeeper.Keeper
 ) *Keeper {
@@ -101,7 +100,7 @@ func NewKeeper(
 		logger:            logger,
 		Paramstore:        paramstore,
 		bankKeeper:        bankKeeper,
-		accountKeeper:     accountKeeper,
+		accountKeeper:     NewAccountKeeperMutex(accountKeeper),
 		stakingKeeper:     stakingKeeper,
 		//transferKeeper:    transferKeeper,
 		//wasmKeeper:                   wasmKeeper,
@@ -115,7 +114,7 @@ func NewKeeper(
 	return k
 }
 
-func (k *Keeper) AccountKeeper() *authkeeper.AccountKeeper {
+func (k *Keeper) AccountKeeper() types.AccountKeeper {
 	return k.accountKeeper
 }
 
