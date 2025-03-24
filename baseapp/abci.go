@@ -382,7 +382,13 @@ func (app *BaseApp) PrepareProposal(req *abci.RequestPrepareProposal) (resp *abc
 	if app.prepareProposal == nil {
 		return nil, errors.New("PrepareProposal handler not set")
 	}
-
+	//log spend time
+	start := time.Now()
+	app.logger.Debug("Time PrepareProposal", "block height", req.Height, "start time", start)
+	defer func() {
+		end := time.Now()
+		app.logger.Info("Time PrepareProposal", "block height", req.Height, "end time", end, "spend time", end.Sub(start).Milliseconds())
+	}()
 	// Always reset state given that PrepareProposal can timeout and be called
 	// again in a subsequent round.
 	header := cmtproto.Header{
@@ -460,7 +466,13 @@ func (app *BaseApp) ProcessProposal(req *abci.RequestProcessProposal) (resp *abc
 	if app.processProposal == nil {
 		return nil, errors.New("ProcessProposal handler not set")
 	}
-
+	//log spend time
+	start := time.Now()
+	app.logger.Debug("Time ProcessProposal", "block height", req.Height, "start time", start)
+	defer func() {
+		end := time.Now()
+		app.logger.Info("Time ProcessProposal", "block height", req.Height, "end time", end, "spend time", end.Sub(start).Milliseconds())
+	}()
 	// CometBFT must never call ProcessProposal with a height of 0.
 	// Ref: https://github.com/cometbft/cometbft/blob/059798a4f5b0c9f52aa8655fa619054a0154088c/spec/core/state.md?plain=1#L37-L38
 	if req.Height < 1 {
@@ -803,13 +815,25 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	//
 	// NOTE: Not all raw transactions may adhere to the sdk.Tx interface, e.g.
 	// vote extensions, so skip those.
+	startExecTx := time.Now()
+	app.logger.Info("Time ExecTxs", "block height", req.Height, "start exec tx", startExecTx)
 	txResults := app.execTx(app.finalizeBlockState.Context(), batchTxReq, req.Txs)
-
+	endExecTx := time.Now()
+	spendTime := endExecTx.Sub(startExecTx).Milliseconds()
+	if spendTime > 0 {
+		app.logger.Info("Time ExecTxs", "block height", req.Height, "end exec tx", endExecTx,
+			"spend time", spendTime, "TPS", 1000*len(req.Txs)/int(spendTime))
+	}
 	if app.finalizeBlockState.ms.TracingEnabled() {
 		app.finalizeBlockState.ms = app.finalizeBlockState.ms.SetTracingContext(nil).(storetypes.CacheMultiStore)
 	}
-
+	startEndBlock := time.Now()
 	endBlock, err := app.endBlock(app.finalizeBlockState.Context())
+	endEndBlock := time.Now()
+	spendTime = endEndBlock.Sub(startEndBlock).Milliseconds()
+	if spendTime > 0 {
+		app.logger.Info("Time EndBlock", "block height", req.Height, "spend time", spendTime)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -844,6 +868,14 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 // extensions into the proposal, which should not themselves be executed in cases
 // where they adhere to the sdk.Tx interface.
 func (app *BaseApp) FinalizeBlock(req *abci.RequestFinalizeBlock) (res *abci.ResponseFinalizeBlock, err error) {
+	//log spend time
+	start := time.Now()
+	app.logger.Debug("Time FinalizeBlock", "block height", req.Height, "start time", start)
+	defer func() {
+		end := time.Now()
+		app.logger.Info("Time FinalizeBlock", "block height", req.Height, "end time", end, "spend time", end.Sub(start).Milliseconds())
+	}()
+
 	defer func() {
 		// call the streaming service hooks with the FinalizeBlock messages
 		for _, streamingListener := range app.streamingManager.ABCIListeners {
@@ -908,6 +940,14 @@ func (app *BaseApp) checkHalt(height int64, time time.Time) error {
 // against that height and gracefully halt if it matches the latest committed
 // height.
 func (app *BaseApp) Commit() (*abci.ResponseCommit, error) {
+	//log spend time
+	start := time.Now()
+	app.logger.Debug("Time Commit", "start time", start)
+	defer func() {
+		end := time.Now()
+		app.logger.Info("Time Commit", "end time", end, "spend time", end.Sub(start).Milliseconds())
+	}()
+
 	header := app.finalizeBlockState.Context().BlockHeader()
 	retainHeight := app.GetBlockRetentionHeight(header.Height)
 
