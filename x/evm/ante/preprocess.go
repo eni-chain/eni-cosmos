@@ -92,9 +92,10 @@ func (p *EVMPreprocessDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate
 		// noop; for readability
 	} else {
 		// not associatedTx and not already associated
-		if err := associateHelper.AssociateAddresses(ctx, eniAddr, evmAddr, pubkey); err != nil {
-			return ctx, err
-		}
+		// todo after completing the related functions, make detailed modifications. For now, comments will not affect the process.
+		//if err := associateHelper.AssociateAddresses(ctx, eniAddr, evmAddr, pubkey); err != nil {
+		//	return ctx, err
+		//}
 	}
 
 	return next(ctx, tx, simulate)
