@@ -3,6 +3,7 @@ package tasks
 import (
 	"fmt"
 	abci "github.com/cometbft/cometbft/abci/types"
+	"runtime"
 	"sort"
 	"sync"
 	"time"
@@ -301,14 +302,30 @@ func (s *scheduler) parallelExec(tasks []*deliverTxTask) {
 	if len(tasks) == 0 {
 		return
 	}
+	// set GOMAXPROCS to the number of CPUs to use all available cores
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	// use worker pooled by runtime to execute tasks in parallel
+	workerCount := runtime.NumCPU()
+	taskChan := make(chan *deliverTxTask, len(tasks))
 	wg := &sync.WaitGroup{}
-	for _, task := range tasks {
+
+	// start worker
+	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
-		t := task
 		go func() {
-			s.prepareAndRunTask(wg, t)
+			defer wg.Done()
+			for task := range taskChan {
+				s.executeTask(task)
+			}
 		}()
 	}
+
+	// dispatch tasks to workers
+	for _, task := range tasks {
+		taskChan <- task
+	}
+	close(taskChan)
 	wg.Wait()
 }
 
