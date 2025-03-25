@@ -9,6 +9,7 @@ type DeliverTxEntry struct {
 // DeliverTxBatchRequest represents a request object for a batch of transactions.
 // This can be extended to include request-level tracing or metadata
 type DeliverTxBatchRequest struct {
+	AssociateTxs []*DeliverTxEntry //todo deal with for parallel priority processing
 	OtherEntries []*DeliverTxEntry
 	SeqEntries   []*DeliverTxEntry
 }

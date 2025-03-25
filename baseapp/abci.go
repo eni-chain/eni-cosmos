@@ -747,8 +747,9 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 			app.logger.Error("parallel transaction grouping failed", "height", req.Height, "time", req.Time, "hash", fmt.Sprintf("%X", req.Hash), gErr, "gErr")
 			return nil, gErr
 		}
-		batchTxReq.OtherEntries = txGroup.otherEntries
-		batchTxReq.SeqEntries = txGroup.seqEntries
+		batchTxReq.AssociateTxs = txGroup.associateTxs
+		batchTxReq.OtherEntries = txGroup.otherTxs
+		batchTxReq.SeqEntries = txGroup.sequentialTxs
 	}
 
 	// Context is now updated with Header information.
