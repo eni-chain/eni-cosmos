@@ -1,11 +1,15 @@
 package keys
 
 import (
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"strings"
 )
 
 // Use protobuf interface marshaler rather then generic JSON
@@ -13,11 +17,12 @@ import (
 // KeyOutput defines a structure wrapping around an Info object used for output
 // functionality.
 type KeyOutput struct {
-	Name     string `json:"name" yaml:"name"`
-	Type     string `json:"type" yaml:"type"`
-	Address  string `json:"address" yaml:"address"`
-	PubKey   string `json:"pubkey" yaml:"pubkey"`
-	Mnemonic string `json:"mnemonic,omitempty" yaml:"mnemonic"`
+	Name       string `json:"name" yaml:"name"`
+	Type       string `json:"type" yaml:"type"`
+	Address    string `json:"address" yaml:"address"`
+	EvmAddress string `json:"evm_address,omitempty" yaml:"evm_address"`
+	PubKey     string `json:"pubkey" yaml:"pubkey"`
+	Mnemonic   string `json:"mnemonic,omitempty" yaml:"mnemonic"`
 }
 
 // NewKeyOutput creates a default KeyOutput instance without Mnemonic, Threshold and PubKeys
@@ -30,11 +35,26 @@ func NewKeyOutput(name string, keyType keyring.KeyType, a sdk.Address, pk crypto
 	if err != nil {
 		return KeyOutput{}, err
 	}
+	//Calculate EVM address
+	evmAddress := common.Address{}
+	if strings.Contains(pk.Type(), "secp256k1") {
+		pubKey := pk.Bytes()
+		if len(pubKey) == 33 {
+			pubK, err1 := btcec.ParsePubKey(pubKey)
+			if err1 != nil {
+				return KeyOutput{}, err1
+			}
+			pubKey = pubK.SerializeUncompressed()
+		}
+		hash := crypto.Keccak256(pubKey[1:])
+		evmAddress = common.BytesToAddress(hash[len(hash)-20:])
+	}
 	return KeyOutput{
-		Name:    name,
-		Type:    keyType.String(),
-		Address: a.String(),
-		PubKey:  string(bz),
+		Name:       name,
+		Type:       keyType.String(),
+		Address:    a.String(),
+		PubKey:     string(bz),
+		EvmAddress: evmAddress.Hex(),
 	}, nil
 }
 
@@ -68,6 +88,7 @@ func MkAccKeyOutput(k *keyring.Record) (KeyOutput, error) {
 	if err != nil {
 		return KeyOutput{}, err
 	}
+
 	addr := sdk.AccAddress(pk.Address())
 	return NewKeyOutput(k.Name, k.GetType(), addr, pk)
 }
