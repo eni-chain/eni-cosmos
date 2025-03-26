@@ -7,10 +7,9 @@ import (
 	"sync"
 	"time"
 
-	abci "github.com/cometbft/cometbft/abci/types"
-
 	"cosmossdk.io/store/rwset"
 	store "cosmossdk.io/store/types"
+	abci "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -44,8 +43,8 @@ type deliverTxTask struct {
 type sortTxTasks []*deliverTxTask
 
 func (s sortTxTasks) Len() int           { return len(s) }
-func (s sortTxTasks) Swap(i, j int)      { (s)[i], (s)[j] = (s)[j], (s)[i] }
-func (s sortTxTasks) Less(i, j int) bool { return (s)[i].TxIndex < (s)[j].TxIndex }
+func (s sortTxTasks) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s sortTxTasks) Less(i, j int) bool { return s[i].TxIndex < s[j].TxIndex }
 
 func (dt *deliverTxTask) IsStatus(s status) bool {
 	dt.mx.RLock()
@@ -57,16 +56,16 @@ func (dt *deliverTxTask) SetStatus(s status) {
 	dt.mx.Lock()
 	defer dt.mx.Unlock()
 	dt.Status = s
+	taskStatusTotal.WithLabelValues(string(s)).Inc() // Record status change
 }
 
 func (dt *deliverTxTask) Reset() {
 	dt.SetStatus(statusPending)
 	dt.TxExecStores = nil
-	dt.ValidationResult = false // reset validation result
-	dt.Conflicts = nil          // reset conflicts list
+	dt.ValidationResult = false // Reset validation result
+	dt.Conflicts = nil          // Reset conflicts list
 }
 
-// Scheduler processes tasks concurrently
 type Scheduler interface {
 	ProcessAll(ctx sdk.Context, reqs sdk.DeliverTxBatchRequest) ([]*abci.ExecTxResult, error)
 }
@@ -77,7 +76,6 @@ type scheduler struct {
 	synchronous bool // true if maxIncarnation exceeds threshold
 }
 
-// NewScheduler creates a new scheduler
 func NewScheduler(deliverTxFunc func(ctx sdk.Context, tx []byte) *abci.ExecTxResult) Scheduler {
 	return &scheduler{
 		deliverTx: deliverTxFunc,
@@ -92,6 +90,11 @@ func (s *scheduler) invalidateTask(task *deliverTxTask) {
 }
 
 func (s *scheduler) findConflicts(task *deliverTxTask) (bool, []int) {
+	start := time.Now()
+	defer func() {
+		findConflictsDuration.Observe(time.Since(start).Seconds())
+	}()
+
 	var conflicts []int
 	uniq := make(map[int]struct{})
 	valid := true
@@ -103,10 +106,8 @@ func (s *scheduler) findConflicts(task *deliverTxTask) (bool, []int) {
 				uniq[c] = struct{}{}
 			}
 		}
-		// any non-ok value makes valid false
 		valid = valid && ok
 	}
-	// remove sort operation to improve performance
 	return valid, conflicts
 }
 
@@ -140,10 +141,15 @@ func (s *scheduler) tryInitRwSetStore(ctx sdk.Context) {
 }
 
 func (s *scheduler) ProcessAll(ctx sdk.Context, req sdk.DeliverTxBatchRequest) ([]*abci.ExecTxResult, error) {
+	startTime := time.Now()
+	defer func() {
+		processAllDuration.Observe(time.Since(startTime).Seconds())
+	}()
+
 	if len(req.SeqEntries)+len(req.OtherEntries) == 0 {
 		return []*abci.ExecTxResult{}, nil
 	}
-	startTime := time.Now()
+
 	s.tryInitRwSetStore(ctx)
 	otherTasks := toTasks(ctx, req.OtherEntries)
 	allSeqTasks := toTasks(ctx, req.SeqEntries)
@@ -187,7 +193,6 @@ func (s *scheduler) shouldValid(task *deliverTxTask) error {
 		return fmt.Errorf("expected task status is statusValidated or statusExecuted, but actual is %v", task.Status)
 	}
 
-	// if validate result of cache not available,it is recalculated
 	if !task.ValidationResult && len(task.Conflicts) == 0 {
 		valid, conflicts := s.findConflicts(task)
 		task.ValidationResult = valid
@@ -219,7 +224,6 @@ func (s *scheduler) validateTask(task *deliverTxTask) error {
 	return s.shouldValid(task)
 }
 
-// use channel to optimize task classification
 func (s *scheduler) defineTasksType(tasks []*deliverTxTask) ([]*deliverTxTask, []*deliverTxTask, error) {
 	if len(tasks) == 0 {
 		return nil, nil, nil
@@ -310,7 +314,7 @@ func (s *scheduler) finishSerialTasks(sTasks []*deliverTxTask) error {
 	s.synchronous = true
 
 	for _, task := range sTasks {
-		// rest task status and clear rwset to ensure clean execution
+		// Reset task status and clear rwset to ensure clean execution
 		task.Reset()
 		s.invalidateTask(task)
 		s.prepareAndRunTask(nil, task)
@@ -338,6 +342,11 @@ func (s *scheduler) parallelExec(tasks []*deliverTxTask) {
 	if len(tasks) == 0 {
 		return
 	}
+
+	start := time.Now()
+	defer func() {
+		parallelExecDuration.Observe(time.Since(start).Seconds())
+	}()
 
 	workerCount := min(len(tasks), runtime.NumCPU())
 	taskChan := make(chan *deliverTxTask, len(tasks))
@@ -390,6 +399,11 @@ func (s *scheduler) prepareTask(task *deliverTxTask) {
 }
 
 func (s *scheduler) executeTask(task *deliverTxTask) {
+	start := time.Now()
+	defer func() {
+		executeTxDuration.Observe(time.Since(start).Seconds())
+	}()
+
 	if s.synchronous {
 		if task.IsStatus(statusValidated) {
 			s.invalidateTask(task)
