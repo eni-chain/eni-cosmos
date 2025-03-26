@@ -2,11 +2,12 @@ package tasks
 
 import (
 	"fmt"
-	abci "github.com/cometbft/cometbft/abci/types"
 	"runtime"
 	"sort"
 	"sync"
 	"time"
+
+	abci "github.com/cometbft/cometbft/abci/types"
 
 	"cosmossdk.io/store/rwset"
 	store "cosmossdk.io/store/types"
@@ -30,12 +31,14 @@ const (
 type deliverTxTask struct {
 	Ctx sdk.Context
 
-	mx           sync.RWMutex
-	Status       status
-	Result       *abci.ExecTxResult
-	TxBytes      []byte
-	TxIndex      int
-	TxExecStores map[store.StoreKey]*rwset.TxExecutionStore
+	mx               sync.RWMutex
+	Status           status
+	Result           *abci.ExecTxResult
+	TxBytes          []byte
+	TxIndex          int
+	TxExecStores     map[store.StoreKey]*rwset.TxExecutionStore
+	ValidationResult bool  // cache validate result
+	Conflicts        []int // cache conflicts list
 }
 
 type sortTxTasks []*deliverTxTask
@@ -59,7 +62,8 @@ func (dt *deliverTxTask) SetStatus(s status) {
 func (dt *deliverTxTask) Reset() {
 	dt.SetStatus(statusPending)
 	dt.TxExecStores = nil
-
+	dt.ValidationResult = false // reset validation result
+	dt.Conflicts = nil          // reset conflicts list
 }
 
 // Scheduler processes tasks concurrently
@@ -102,8 +106,7 @@ func (s *scheduler) findConflicts(task *deliverTxTask) (bool, []int) {
 		// any non-ok value makes valid false
 		valid = valid && ok
 	}
-	sort.Ints(conflicts)
-
+	// remove sort operation to improve performance
 	return valid, conflicts
 }
 
@@ -119,7 +122,6 @@ func toTasks(ctx sdk.Context, entries []*sdk.DeliverTxEntry) []*deliverTxTask {
 			TxBytes: r.Tx,
 			Ctx:     ctx,
 		}
-
 		allTasks = append(allTasks, task)
 	}
 	return allTasks
@@ -185,9 +187,28 @@ func (s *scheduler) shouldValid(task *deliverTxTask) error {
 		return fmt.Errorf("expected task status is statusValidated or statusExecuted, but actual is %v", task.Status)
 	}
 
-	if valid, conflicts := s.findConflicts(task); !valid || len(conflicts) != 0 {
-		s.invalidateTask(task)
-		return fmt.Errorf("task %v verify result %v,conflicts found: %v, ", task.TxIndex, valid, conflicts)
+	// if validate result of cache not available,it is recalculated
+	if !task.ValidationResult && len(task.Conflicts) == 0 {
+		valid, conflicts := s.findConflicts(task)
+		task.ValidationResult = valid
+		task.Conflicts = conflicts
+	}
+
+	if !task.ValidationResult {
+		ctx := task.Ctx
+		ctx.Logger().Error("Validation failed for task",
+			"task_index", task.TxIndex,
+			"status", task.Status,
+			"conflicts", task.Conflicts)
+		for storeKey, mv := range s.rwSetStores {
+			ok, mvConflicts := mv.ValidateTransactionState(task.TxIndex, s.synchronous)
+			if !ok {
+				ctx.Logger().Error("Validation failed for store",
+					"store_key", storeKey.String(),
+					"conflicts", mvConflicts)
+			}
+		}
+		return fmt.Errorf("task %v verify result false, conflicts found: %v", task.TxIndex, task.Conflicts)
 	}
 
 	task.SetStatus(statusValidated)
@@ -198,42 +219,56 @@ func (s *scheduler) validateTask(task *deliverTxTask) error {
 	return s.shouldValid(task)
 }
 
-// By verifying tasks, differentiate between tasks that can be executed in parallel and tasks that can be executed sequentially.
+// use channel to optimize task classification
 func (s *scheduler) defineTasksType(tasks []*deliverTxTask) ([]*deliverTxTask, []*deliverTxTask, error) {
+	if len(tasks) == 0 {
+		return nil, nil, nil
+	}
 
-	var (
-		mx     sync.Mutex
-		pTasks []*deliverTxTask
-		sTasks []*deliverTxTask
-	)
+	pChan := make(chan *deliverTxTask)
+	sChan := make(chan *deliverTxTask)
+	var wg sync.WaitGroup
+	wg.Add(len(tasks))
 
-	wg := &sync.WaitGroup{}
-	for i := 0; i < len(tasks); i++ {
-		wg.Add(1)
-		t := tasks[i]
-		go func() {
-			mx.Lock()
-			defer mx.Unlock()
-			if valid, conflicts := s.findConflicts(t); !valid || len(conflicts) != 0 {
-				sTasks = append(sTasks, t)
+	for _, t := range tasks {
+		go func(task *deliverTxTask) {
+			defer wg.Done()
+			valid, conflicts := s.findConflicts(task)
+			task.ValidationResult = valid
+			task.Conflicts = conflicts
+			if valid {
+				pChan <- task
 			} else {
-				pTasks = append(pTasks, t)
+				sChan <- task
 			}
-			wg.Done()
-		}()
+		}(t)
 	}
 	wg.Wait()
+	close(pChan)
+	close(sChan)
+
+	pTasks := make([]*deliverTxTask, 0, len(tasks))
+	sTasks := make([]*deliverTxTask, 0, len(tasks))
+	for task := range pChan {
+		pTasks = append(pTasks, task)
+	}
+	for task := range sChan {
+		sTasks = append(sTasks, task)
+	}
 
 	return pTasks, sTasks, nil
 }
 
 func (s *scheduler) validateAll(tasks []*deliverTxTask) error {
-	wg := &sync.WaitGroup{}
-	errChan := make(chan error, len(tasks))
+	if len(tasks) == 0 {
+		return nil
+	}
 
-	for i := 0; i < len(tasks); i++ {
-		wg.Add(1)
-		t := tasks[i]
+	errChan := make(chan error, len(tasks))
+	wg := &sync.WaitGroup{}
+	wg.Add(len(tasks))
+
+	for _, t := range tasks {
 		go func(task *deliverTxTask) {
 			defer wg.Done()
 			if err := s.validateTask(task); err != nil {
@@ -260,8 +295,6 @@ func (s *scheduler) finishParaTasks(pTasks []*deliverTxTask) error {
 	if len(pTasks) == 0 {
 		return nil
 	}
-	s.parallelExec(pTasks)
-
 	err := s.validateAll(pTasks)
 	if err != nil {
 		return err
@@ -277,12 +310,15 @@ func (s *scheduler) finishSerialTasks(sTasks []*deliverTxTask) error {
 	s.synchronous = true
 
 	for _, task := range sTasks {
+		// rest task status and clear rwset to ensure clean execution
+		task.Reset()
+		s.invalidateTask(task)
 		s.prepareAndRunTask(nil, task)
 	}
 
 	err := s.validateAll(sTasks)
 	if err != nil {
-		return err
+		return fmt.Errorf("serial otherTasks failed: %w", err)
 	}
 	return nil
 }
@@ -302,15 +338,11 @@ func (s *scheduler) parallelExec(tasks []*deliverTxTask) {
 	if len(tasks) == 0 {
 		return
 	}
-	// set GOMAXPROCS to the number of CPUs to use all available cores
-	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	// use worker pooled by runtime to execute tasks in parallel
-	workerCount := runtime.NumCPU()
+	workerCount := min(len(tasks), runtime.NumCPU())
 	taskChan := make(chan *deliverTxTask, len(tasks))
 	wg := &sync.WaitGroup{}
 
-	// start worker
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
 		go func() {
@@ -321,7 +353,6 @@ func (s *scheduler) parallelExec(tasks []*deliverTxTask) {
 		}()
 	}
 
-	// dispatch tasks to workers
 	for _, task := range tasks {
 		taskChan <- task
 	}
@@ -336,22 +367,17 @@ func (s *scheduler) prepareAndRunTask(wg *sync.WaitGroup, task *deliverTxTask) {
 	}
 }
 
-// prepareTask initializes the context and version stores for a task
 func (s *scheduler) prepareTask(task *deliverTxTask) {
 	ctx := task.Ctx.WithTxIndex(task.TxIndex)
 
-	// if there are no stores, don't try to wrap, because there's nothing to wrap
 	if len(s.rwSetStores) > 0 {
-		// non-blocking
 		cms := ctx.MultiStore().CacheMultiStore()
 
-		// init version stores by store key
 		vs := make(map[store.StoreKey]*rwset.TxExecutionStore)
 		for storeKey, mvs := range s.rwSetStores {
 			vs[storeKey] = mvs.TxExecutionStore(task.TxIndex)
 		}
 
-		// save off version store so we can ask it things later
 		task.TxExecStores = vs
 		ms := cms.SetKVStores(func(k store.StoreKey, kvs store.KVStore) store.CacheWrap {
 			return vs[k]
@@ -368,7 +394,6 @@ func (s *scheduler) executeTask(task *deliverTxTask) {
 		if task.IsStatus(statusValidated) {
 			s.invalidateTask(task)
 		}
-
 		if !task.IsStatus(statusPending) {
 			task.Reset()
 		}
@@ -382,7 +407,14 @@ func (s *scheduler) executeTask(task *deliverTxTask) {
 	task.Result = resp
 
 	for _, v := range task.TxExecStores {
-		//v.DebugPrint()
 		v.WriteToRwSetStore()
 	}
+}
+
+// min returns the smaller of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
