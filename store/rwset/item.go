@@ -32,7 +32,7 @@ type writeSetItem struct {
 
 var _ WriteSetValue = (*writeSetItem)(nil)
 
-func NewWriteSetItem() *writeSetItem {
+func NewWriteSetItem() WriteSetValue {
 	return &writeSetItem{
 		valueTree: btree.New(writeSetBTreeDegree),
 	}

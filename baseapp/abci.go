@@ -747,9 +747,13 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 			app.logger.Error("parallel transaction grouping failed", "height", req.Height, "time", req.Time, "hash", fmt.Sprintf("%X", req.Hash), gErr, "gErr")
 			return nil, gErr
 		}
-		batchTxReq.AssociateTxs = txGroup.associateTxs
-		batchTxReq.OtherEntries = txGroup.otherTxs
 		batchTxReq.SeqEntries = txGroup.sequentialTxs
+		batchTxReq.AssociateTxs = txGroup.associateTxs
+
+		totalLen := len(txGroup.otherTxs) + len(txGroup.sequentialTxs)
+		batchTxReq.OtherEntries = make([]*sdk.DeliverTxEntry, 0, totalLen)
+		batchTxReq.OtherEntries = append(batchTxReq.OtherEntries, txGroup.otherTxs...)
+		batchTxReq.OtherEntries = append(batchTxReq.OtherEntries, batchTxReq.SeqEntries...)
 	}
 
 	// Context is now updated with Header information.
@@ -817,7 +821,7 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	// NOTE: Not all raw transactions may adhere to the sdk.Tx interface, e.g.
 	// vote extensions, so skip those.
 	startExecTx := time.Now()
-	app.logger.Info("Time ExecTxs", "block height", req.Height, "start exec tx", startExecTx)
+	app.logger.Info("Time ExecTxs", "block height", req.Height, "start exec tx", startExecTx, "all txs", len(req.Txs))
 	txResults := app.execTx(app.finalizeBlockState.Context(), batchTxReq, req.Txs)
 	endExecTx := time.Now()
 	spendTime := endExecTx.Sub(startExecTx).Milliseconds()

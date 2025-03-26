@@ -137,29 +137,69 @@ func (s *scheduler) tryInitRwSetStore(ctx sdk.Context) {
 	s.rwSetStores = rws
 }
 
+//func (s *scheduler) ProcessAll(ctx sdk.Context, req sdk.DeliverTxBatchRequest) ([]*abci.ExecTxResult, error) {
+//	if len(req.SeqEntries)+len(req.OtherEntries) == 0 {
+//		return []*abci.ExecTxResult{}, nil
+//	}
+//	startTime := time.Now()
+//	s.tryInitRwSetStore(ctx)
+//	otherTasks := toTasks(ctx, req.OtherEntries)
+//	allSeqTasks := toTasks(ctx, req.SeqEntries)
+//
+//	ctx.Logger().Info("occ scheduler enter ProcessAll", "otherTask", len(otherTasks), "seqTask", len(allSeqTasks))
+//	allTasks := append(otherTasks, allSeqTasks...)
+//	pTasks, sTasks, err := s.preprocessTask(otherTasks)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	allSeqTasks = append(allSeqTasks, sTasks...)
+//	sort.Sort(sortTxTasks(allSeqTasks))
+//
+//	if err = s.finishParaTasks(pTasks); err != nil {
+//		return nil, fmt.Errorf("parallel otherTasks failed: %w", err)
+//	}
+//
+//	if err = s.finishSerialTasks(allSeqTasks); err != nil {
+//		return nil, fmt.Errorf("serial otherTasks failed: %w", err)
+//	}
+//
+//	for _, mv := range s.rwSetStores {
+//		mv.WriteLatestToStore()
+//	}
+//
+//	ctx.Logger().Info("occ scheduler", "height", ctx.BlockHeight(), "parallel tasks", len(pTasks), "seq tasks", len(allSeqTasks), "latency_ms", time.Since(startTime).Milliseconds())
+//
+//	return s.collectResponses(allTasks), nil
+//}
+
 func (s *scheduler) ProcessAll(ctx sdk.Context, req sdk.DeliverTxBatchRequest) ([]*abci.ExecTxResult, error) {
+	ctx.Logger().Info("occ scheduler enter ProcessAll", "otherTask", len(req.OtherEntries))
+
 	if len(req.SeqEntries)+len(req.OtherEntries) == 0 {
 		return []*abci.ExecTxResult{}, nil
 	}
 	startTime := time.Now()
 	s.tryInitRwSetStore(ctx)
 	otherTasks := toTasks(ctx, req.OtherEntries)
-	allSeqTasks := toTasks(ctx, req.SeqEntries)
-	allTasks := append(otherTasks, allSeqTasks...)
+	//seqTasks := toTasks(ctx, req.SeqEntries)
+
+	//allTasks := append(otherTasks, seqTasks...)
 
 	pTasks, sTasks, err := s.preprocessTask(otherTasks)
 	if err != nil {
 		return nil, err
 	}
 
-	allSeqTasks = append(allSeqTasks, sTasks...)
-	sort.Sort(sortTxTasks(allSeqTasks))
+	ctx.Logger().Info("occ scheduler preprocessTask", "pTasks", len(pTasks), "sTasks", len(sTasks))
+
+	sort.Sort(sortTxTasks(sTasks))
 
 	if err = s.finishParaTasks(pTasks); err != nil {
 		return nil, fmt.Errorf("parallel otherTasks failed: %w", err)
 	}
 
-	if err = s.finishSerialTasks(allSeqTasks); err != nil {
+	if err = s.finishSerialTasks(sTasks); err != nil {
 		return nil, fmt.Errorf("serial otherTasks failed: %w", err)
 	}
 
@@ -167,9 +207,9 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, req sdk.DeliverTxBatchRequest) (
 		mv.WriteLatestToStore()
 	}
 
-	ctx.Logger().Info("occ scheduler", "height", ctx.BlockHeight(), "txs", len(otherTasks), "latency_ms", time.Since(startTime).Milliseconds(), "sync", s.synchronous)
+	ctx.Logger().Info("occ scheduler", "height", ctx.BlockHeight(), "parallel tasks", len(pTasks), "seq tasks", len(sTasks), "latency_ms", time.Since(startTime).Milliseconds())
 
-	return s.collectResponses(allTasks), nil
+	return s.collectResponses(otherTasks), nil
 }
 
 func (s *scheduler) collectResponses(tasks []*deliverTxTask) []*abci.ExecTxResult {
@@ -306,7 +346,7 @@ func (s *scheduler) parallelExec(tasks []*deliverTxTask) {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	// use worker pooled by runtime to execute tasks in parallel
-	workerCount := runtime.NumCPU()
+	workerCount := min(len(tasks), runtime.NumCPU()*2)
 	taskChan := make(chan *deliverTxTask, len(tasks))
 	wg := &sync.WaitGroup{}
 

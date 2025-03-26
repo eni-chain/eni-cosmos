@@ -1192,15 +1192,15 @@ func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchReques
 
 func (app *BaseApp) execTx(ctx sdk.Context, req sdk.DeliverTxBatchRequest, txs [][]byte) []*abci.ExecTxResult {
 	if ctx.IsParallelTx() {
-		var txRes []*abci.ExecTxResult
-		if len(req.AssociateTxs) != 0 {
-			var assTxs [][]byte
-			for _, tx := range req.AssociateTxs {
-				assTxs = append(assTxs, tx.Tx)
-			}
-			txRes = app.serialProcessTxs(ctx, assTxs)
-		}
-		return append(txRes, app.parallelProcessTxs(ctx, req)...)
+		//var txRes []*abci.ExecTxResult
+		//if len(req.AssociateTxs) != 0 {
+		//	var assTxs [][]byte
+		//	for _, tx := range req.AssociateTxs {
+		//		assTxs = append(assTxs, tx.Tx)
+		//	}
+		//	txRes = app.serialProcessTxs(ctx, assTxs)
+		//}
+		return app.parallelProcessTxs(ctx, req)
 	}
 
 	return app.serialProcessTxs(ctx, txs)

@@ -2,11 +2,10 @@ package rwset
 
 import (
 	"bytes"
-	"sort"
-	"sync"
-
 	"cosmossdk.io/store/types"
 	db "github.com/cometbft/cometbft-db"
+	"github.com/orcaman/concurrent-map/v2"
+	"sort"
 )
 
 // RwSetStore 交易级别可见的store结构，用于读写集冲突检测及commit前的key、value存储
@@ -33,19 +32,23 @@ var _ RwSetStore = (*Store)(nil)
 
 type Store struct {
 	// key (write key) -> value (WriteSet)
-	writeSetMap *sync.Map
+	writeSetMap cmap.ConcurrentMap[string, WriteSetValue]
 
-	txWriteSetKeys *sync.Map // map of tx index -> writeSet keys []string
-	txReadSets     *sync.Map // map of tx index -> readSet ReadSet
+	txWriteSetKeys cmap.ConcurrentMap[int, []string] // map of tx index -> writeSet keys []string
+	txReadSets     cmap.ConcurrentMap[int, ReadSet]  // map of tx index -> readSet ReadSet
 
 	parentStore types.KVStore
 }
 
+func intShardingFunc(key int) uint32 {
+	return uint32(key)
+}
+
 func NewRwSetStore(parentStore types.KVStore) *Store {
 	return &Store{
-		writeSetMap:    &sync.Map{},
-		txWriteSetKeys: &sync.Map{},
-		txReadSets:     &sync.Map{},
+		writeSetMap:    cmap.New[WriteSetValue](),
+		txWriteSetKeys: cmap.NewWithCustomShardingFunction[int, []string](intShardingFunc),
+		txReadSets:     cmap.NewWithCustomShardingFunction[int, ReadSet](intShardingFunc),
 		parentStore:    parentStore,
 	}
 }
@@ -58,7 +61,7 @@ func (s *Store) TxExecutionStore(index int) *TxExecutionStore {
 // GetLatest implements RwSetStore.
 func (s *Store) GetLatest(key []byte) (value WriteSetValueItem) {
 	keyString := string(key)
-	mvVal, found := s.writeSetMap.Load(keyString)
+	mvVal, found := s.writeSetMap.Get(keyString)
 	// if the key doesn't exist in the overall map, return nil
 	if !found {
 		return nil
@@ -73,7 +76,7 @@ func (s *Store) GetLatest(key []byte) (value WriteSetValueItem) {
 // GetLatestBeforeIndex implements RwSetStore.
 func (s *Store) GetLatestBeforeIndex(index int, key []byte) (value WriteSetValueItem) {
 	keyString := string(key)
-	mvVal, found := s.writeSetMap.Load(keyString)
+	mvVal, found := s.writeSetMap.Get(keyString)
 	// if the key doesn't exist in the overall map, return nil
 	if !found {
 		return nil
@@ -91,7 +94,7 @@ func (s *Store) GetLatestBeforeIndex(index int, key []byte) (value WriteSetValue
 func (s *Store) Has(index int, key []byte) bool {
 
 	keyString := string(key)
-	mvVal, found := s.writeSetMap.Load(keyString)
+	mvVal, found := s.writeSetMap.Get(keyString)
 	// if the key doesn't exist in the overall map, return nil
 	if !found {
 		return false // this is okay because the caller of this will THEN need to access the parent store to verify that the key doesnt exist there
@@ -107,9 +110,8 @@ func (s *Store) removeOldWriteSet(index int, newWriteSet WriteSet) {
 		writeSet = newWriteSet
 	}
 	// if there is already a writeSet existing, we should remove that fully
-	oldKeys, loaded := s.txWriteSetKeys.LoadAndDelete(index)
+	keys, loaded := LoadAndDelete(s.txWriteSetKeys, index)
 	if loaded {
-		keys := oldKeys.([]string)
 		// we need to delete all of the keys in the writeSet from the multiversion store
 		for _, key := range keys {
 			// small optimization to check if the new writeSet is going to write this key, if so, we can leave it behind
@@ -118,7 +120,7 @@ func (s *Store) removeOldWriteSet(index int, newWriteSet WriteSet) {
 				continue
 			}
 			// remove from the appropriate item if present in writeSetMap
-			mvVal, found := s.writeSetMap.Load(key)
+			mvVal, found := s.writeSetMap.Get(key)
 			// if the key doesn't exist in the overall map, return nil
 			if !found {
 				continue
@@ -135,7 +137,7 @@ func (s *Store) SetWriteSet(index int, writeSet WriteSet) {
 	writeSetKeys := make([]string, 0, len(writeSet))
 	for key, value := range writeSet {
 		writeSetKeys = append(writeSetKeys, key)
-		loadVal, _ := s.writeSetMap.LoadOrStore(key, NewWriteSetItem()) // init if necessary
+		loadVal, _ := LoadOrStore(s.writeSetMap, key, NewWriteSetItem())
 		mvVal := loadVal.(WriteSetValue)
 		if value == nil {
 			mvVal.Delete(index)
@@ -144,19 +146,18 @@ func (s *Store) SetWriteSet(index int, writeSet WriteSet) {
 		}
 	}
 	sort.Strings(writeSetKeys)
-	s.txWriteSetKeys.Store(index, writeSetKeys)
+	s.txWriteSetKeys.Set(index, writeSetKeys)
 }
 
 // InvalidateWriteSet iterates over the keys for the given index and incarnation writeSet and replaces with ESTIMATEs
 func (s *Store) InvalidateWriteSet(index int) {
-	keysAny, found := s.txWriteSetKeys.Load(index)
+	keys, found := s.txWriteSetKeys.Get(index)
 	if !found {
 		return
 	}
-	keys := keysAny.([]string)
 	for _, key := range keys {
 		// invalidate all of the writeSet items - is this suboptimal? - we could potentially do concurrently if slow because locking is on an item specific level
-		_, _ = s.writeSetMap.LoadOrStore(key, NewWriteSetItem())
+		_, _ = LoadOrStore(s.writeSetMap, key, NewWriteSetItem())
 	}
 	// we leave the writeSet in place because we'll need it for key removal later if/when we replace with a new writeSet
 }
@@ -164,30 +165,27 @@ func (s *Store) InvalidateWriteSet(index int) {
 // GetAllWriteSetKeys implements RwSetStore.
 func (s *Store) GetAllWriteSetKeys() map[int][]string {
 	writeSetKeys := make(map[int][]string)
-	s.txWriteSetKeys.Range(func(key, value interface{}) bool {
-		index := key.(int)
-		keys := value.([]string)
-		writeSetKeys[index] = keys
-		return true
-	})
+	for item := range s.txWriteSetKeys.IterBuffered() {
+		writeSetKeys[item.Key] = item.Val
+	}
 
 	return writeSetKeys
 }
 
 func (s *Store) SetReadSet(index int, readSet ReadSet) {
-	s.txReadSets.Store(index, readSet)
+	s.txReadSets.Set(index, readSet)
 }
 
 func (s *Store) GetReadSet(index int) ReadSet {
-	readSetAny, found := s.txReadSets.Load(index)
+	readSetAny, found := s.txReadSets.Get(index)
 	if !found {
 		return nil
 	}
-	return readSetAny.(ReadSet)
+	return readSetAny
 }
 
 func (s *Store) ClearReadSet(index int) {
-	s.txReadSets.Delete(index)
+	s.txReadSets.Remove(index)
 }
 
 // CollectIteratorItems implements RwSetStore. It will return a memDB containing all of the keys present in the multiversion store within the iteration range prior to (exclusive of) the index.
@@ -196,11 +194,10 @@ func (s *Store) CollectIteratorItems(index int) *db.MemDB {
 
 	// get all writeSet keys prior to index
 	for i := 0; i < index; i++ {
-		writeSetAny, found := s.txWriteSetKeys.Load(i)
+		indexedWriteSet, found := s.txWriteSetKeys.Get(i)
 		if !found {
 			continue
 		}
-		indexedWriteSet := writeSetAny.([]string)
 		for _, key := range indexedWriteSet {
 			sortedItems.Set([]byte(key), []byte{})
 		}
@@ -212,11 +209,10 @@ func (s *Store) checkReadSetAtIndex(index int, isSync bool) (bool, []int) {
 	conflictSet := make(map[int]struct{})
 	valid := true
 
-	readSetAny, found := s.txReadSets.Load(index)
+	readSet, found := s.txReadSets.Get(index)
 	if !found {
 		return true, []int{}
 	}
-	readSet := readSetAny.(ReadSet)
 	for key, valueArr := range readSet {
 		if len(valueArr) != 1 {
 			valid = false
@@ -261,11 +257,10 @@ func (s *Store) checkWriteSetAtIndex(index int) (bool, []int) {
 	conflictSet := make(map[int]struct{})
 	valid := true
 
-	writeSetAny, found := s.txWriteSetKeys.Load(index)
+	writeSet, found := s.txWriteSetKeys.Get(index)
 	if !found {
 		return true, []int{}
 	}
-	writeSet := writeSetAny.([]string)
 
 	for _, key := range writeSet {
 		latestValue := s.GetLatestBeforeIndex(index, []byte(key))
@@ -298,18 +293,18 @@ func (s *Store) ValidateTransactionState(index int, isSync bool) (bool, []int) {
 func (s *Store) WriteLatestToStore() {
 	// sort the keys
 	keys := []string{}
-	s.writeSetMap.Range(func(key, value interface{}) bool {
-		keys = append(keys, key.(string))
-		return true
-	})
+	for item := range s.writeSetMap.IterBuffered() {
+		keys = append(keys, item.Key)
+	}
+
 	sort.Strings(keys)
 
 	for _, key := range keys {
-		val, ok := s.writeSetMap.Load(key)
+		val, ok := s.writeSetMap.Get(key)
 		if !ok {
 			continue
 		}
-		mvValue, found := val.(WriteSetValue).GetLatestValue()
+		mvValue, found := val.GetLatestValue()
 		if !found {
 			// this means that at some point, there was an estimate, but we have since removed it so there isn't anything writeable at the key, so we can skip
 			continue
@@ -327,4 +322,18 @@ func (s *Store) WriteLatestToStore() {
 			s.parentStore.Set([]byte(key), mvValue.Value())
 		}
 	}
+}
+
+func LoadAndDelete[K comparable, V any](m cmap.ConcurrentMap[K, V], key K) (V, bool) {
+	value, ok := m.Get(key)
+	if ok {
+		m.Remove(key)
+	}
+	return value, ok
+}
+
+func LoadOrStore[K comparable, V any](m cmap.ConcurrentMap[K, V], key K, newVal V) (actual V, loaded bool) {
+	loaded = !m.SetIfAbsent(key, newVal)
+	actual, _ = m.Get(key)
+	return
 }
