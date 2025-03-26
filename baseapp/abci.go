@@ -822,7 +822,7 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	endExecTx := time.Now()
 	spendTime := endExecTx.Sub(startExecTx).Milliseconds()
 	if spendTime > 0 {
-		app.logger.Info("Time ExecTxs", "block height", req.Height, "end exec tx", endExecTx,
+		app.logger.Info("Time ExecTxs", "block height", req.Height, "end exec tx", endExecTx.Format(time.StampMicro),
 			"spend time", spendTime, "TPS", 1000*len(req.Txs)/int(spendTime))
 	}
 	if app.finalizeBlockState.ms.TracingEnabled() {
@@ -871,10 +871,10 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 func (app *BaseApp) FinalizeBlock(req *abci.RequestFinalizeBlock) (res *abci.ResponseFinalizeBlock, err error) {
 	//log spend time
 	start := time.Now()
-	app.logger.Debug("Time FinalizeBlock", "block height", req.Height, "start time", start)
+	app.logger.Debug("Time FinalizeBlock", "block height", req.Height, "start time", start.Format(time.StampMicro))
 	defer func() {
 		end := time.Now()
-		app.logger.Info("Time FinalizeBlock", "block height", req.Height, "end time", end, "spend time", end.Sub(start).Milliseconds())
+		app.logger.Info("Time FinalizeBlock", "block height", req.Height, "end time", end.Format(time.StampMicro), "spend time", end.Sub(start).Milliseconds())
 	}()
 
 	defer func() {
@@ -895,7 +895,9 @@ func (app *BaseApp) FinalizeBlock(req *abci.RequestFinalizeBlock) (res *abci.Res
 		// only return if we are not aborting
 		if !aborted {
 			if res != nil {
+				startTime := time.Now()
 				res.AppHash = app.workingHash()
+				app.logger.Info("FinalizeBlock function", "execute time", time.Since(startTime).Milliseconds())
 			}
 
 			return res, err
