@@ -887,11 +887,12 @@ func (app *BaseApp) FinalizeBlock(req *abci.RequestFinalizeBlock) (res *abci.Res
 	}()
 
 	if app.optimisticExec.Initialized() {
+		app.logger.Info("FinalizeBlock Initialized wait start", "block height", req.Height, "now time", time.Now().Format(time.StampMicro))
 		// check if the hash we got is the same as the one we are executing
 		aborted := app.optimisticExec.AbortIfNeeded(req.Hash)
 		// Wait for the OE to finish, regardless of whether it was aborted or not
 		res, err = app.optimisticExec.WaitResult()
-
+		app.logger.Info("FinalizeBlock Initialized wait end", "now time", time.Now().Format(time.StampMicro))
 		// only return if we are not aborting
 		if !aborted {
 			if res != nil {
