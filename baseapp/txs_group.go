@@ -190,6 +190,11 @@ func (t *TxGroup) decodeEvmTx(msgData interface{}, sender common.Address, idx in
 		txMeta.Nonce = tx.GetNonce()
 		txMeta.Data = tx.GetData()
 
+	case *ethtx.AssociateTx:
+		txMeta.To = nil
+		txMeta.Nonce = 0
+		txMeta.Data = nil
+
 	default:
 		return nil, fmt.Errorf("unsupported transaction type: %T", tx)
 	}
