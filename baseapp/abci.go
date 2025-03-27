@@ -898,7 +898,7 @@ func (app *BaseApp) FinalizeBlock(req *abci.RequestFinalizeBlock) (res *abci.Res
 			if res != nil {
 				startTime := time.Now()
 				res.AppHash = app.workingHash()
-				app.logger.Info("FinalizeBlock function", "execute time", time.Since(startTime).Milliseconds())
+				app.logger.Info("Time WorkingHash", "execute time", time.Since(startTime).Milliseconds())
 			}
 
 			return res, err
