@@ -147,21 +147,29 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, req sdk.DeliverTxBatchRequest) (
 	allSeqTasks := toTasks(ctx, req.SeqEntries)
 	allTasks := append(otherTasks, allSeqTasks...)
 
+	parpTime := time.Now()
 	pTasks, sTasks, err := s.preprocessTask(otherTasks)
 	if err != nil {
 		return nil, err
 	}
+	ctx.Logger().Info("preprocess tasks scheduler", "height", ctx.BlockHeight(), "parallel txs", len(pTasks), "serial txs", len(sTasks), "latency_ms", time.Since(parpTime).Milliseconds())
 
+	sortTime := time.Now()
 	allSeqTasks = append(allSeqTasks, sTasks...)
 	sort.Sort(sortTxTasks(allSeqTasks))
+	ctx.Logger().Info("sort tasks scheduler", "height", ctx.BlockHeight(), "txs", len(allSeqTasks), "latency_ms", time.Since(sortTime).Milliseconds())
 
+	paraTime := time.Now()
 	if err = s.finishParaTasks(pTasks); err != nil {
 		return nil, fmt.Errorf("parallel otherTasks failed: %w", err)
 	}
+	ctx.Logger().Info("parallel tasks scheduler", "height", ctx.BlockHeight(), "parallel txs", len(pTasks), "latency_ms", time.Since(paraTime).Milliseconds())
 
+	seqTime := time.Now()
 	if err = s.finishSerialTasks(allSeqTasks); err != nil {
 		return nil, fmt.Errorf("serial otherTasks failed: %w", err)
 	}
+	ctx.Logger().Info("serial tasks scheduler", "height", ctx.BlockHeight(), "serial txs", len(sTasks), "latency_ms", time.Since(seqTime).Milliseconds())
 
 	for _, mv := range s.rwSetStores {
 		mv.WriteLatestToStore()

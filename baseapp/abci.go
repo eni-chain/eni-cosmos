@@ -742,11 +742,15 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	// todo remove this check after we have a better way to handle replays
 	app.enableParallelTxExecution = true
 	if app.enableParallelTxExecution && !app.disableBlockGasMeter {
+		start := time.Now()
+		app.logger.Info("group by txs start", "group txs counts", len(req.Txs), "start time", start.String())
 		txGroup, gErr := app.GroupByTxs(app.finalizeBlockState.Context(), req.Txs)
 		if gErr != nil {
 			app.logger.Error("parallel transaction grouping failed", "height", req.Height, "time", req.Time, "hash", fmt.Sprintf("%X", req.Hash), gErr, "gErr")
 			return nil, gErr
 		}
+		app.logger.Info("group by txs end", "sequential txs counts", len(txGroup.sequentialTxs), "other txs counts", len(txGroup.otherTxs),
+			"associate txs counts", len(txGroup.associateTxs), "spend time(ms)", time.Since(start).Milliseconds())
 		batchTxReq.AssociateTxs = txGroup.associateTxs
 		batchTxReq.OtherEntries = txGroup.otherTxs
 		batchTxReq.SeqEntries = txGroup.sequentialTxs

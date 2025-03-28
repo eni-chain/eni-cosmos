@@ -7,6 +7,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -1182,6 +1183,10 @@ func (app *BaseApp) Close() error {
 
 func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchRequest) []*abci.ExecTxResult {
 	scheduler := tasks.NewScheduler(app.deliverTx)
+	start := time.Now()
+	defer func() {
+		app.logger.Info("scheduler process all completed", "duration time(ms)", time.Since(start).Milliseconds())
+	}()
 	txRes, err := scheduler.ProcessAll(ctx, req)
 	if err != nil {
 		app.logger.Error("error while processing scheduler", "err", err)
