@@ -20,6 +20,7 @@ import (
 	snapshottypes "cosmossdk.io/store/snapshots/types"
 	storetypes "cosmossdk.io/store/types"
 
+	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -706,156 +707,178 @@ func (app *BaseApp) VerifyVoteExtension(req *abci.RequestVerifyVoteExtension) (r
 // only used to handle early cancellation, for anything related to state app.finalizeBlockState.Context()
 // must be used.
 func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.RequestFinalizeBlock) (*abci.ResponseFinalizeBlock, error) {
-	var (
-		events     []abci.Event
-		batchTxReq sdk.DeliverTxBatchRequest
-	)
+	//var (
+	//	events     []abci.Event
+	//	batchTxReq sdk.DeliverTxBatchRequest
+	//)
 
-	if err := app.checkHalt(req.Height, req.Time); err != nil {
-		return nil, err
-	}
-
-	if err := app.validateFinalizeBlockHeight(req); err != nil {
-		return nil, err
-	}
-
-	if app.cms.TracingEnabled() {
-		app.cms.SetTracingContext(map[string]any{"blockHeight": req.Height})
-	}
-
-	header := cmtproto.Header{
-		ChainID:            app.chainID,
-		Height:             req.Height,
-		Time:               req.Time,
-		ProposerAddress:    req.ProposerAddress,
-		NextValidatorsHash: req.NextValidatorsHash,
-		AppHash:            app.LastCommitID().Hash,
-	}
-
-	// finalizeBlockState should be set on InitChain or ProcessProposal. If it is
-	// nil, it means we are replaying this block and we need to set the state here
-	// given that during block replay ProcessProposal is not executed by CometBFT.
-	if app.finalizeBlockState == nil {
-		app.setState(execModeFinalize, header)
-	}
-
-	// todo remove this check after we have a better way to handle replays
-	app.enableParallelTxExecution = true
-	if app.enableParallelTxExecution && !app.disableBlockGasMeter {
-		txGroup, gErr := app.GroupByTxs(app.finalizeBlockState.Context(), req.Txs)
-		if gErr != nil {
-			app.logger.Error("parallel transaction grouping failed", "height", req.Height, "time", req.Time, "hash", fmt.Sprintf("%X", req.Hash), gErr, "gErr")
-			return nil, gErr
+	txRes := make([]*abci.ExecTxResult, len(req.Txs))
+	for i := range req.Txs {
+		mockRes := &abci.ExecTxResult{
+			Events:    []abci.Event{},
+			Code:      1,
+			Codespace: "mockCodeSpace",
+			Data:      []byte{5, 6, 7, 8},
+			GasUsed:   2,
+			GasWanted: 3,
+			Info:      "mockInfo",
+			Log:       "mockLog",
 		}
-		batchTxReq.AssociateTxs = txGroup.associateTxs
-		batchTxReq.OtherEntries = txGroup.otherTxs
-		batchTxReq.SeqEntries = txGroup.sequentialTxs
+		txRes[i] = mockRes
 	}
-
-	// Context is now updated with Header information.
-	app.finalizeBlockState.SetContext(app.finalizeBlockState.Context().
-		WithBlockHeader(header).
-		WithHeaderHash(req.Hash).
-		WithHeaderInfo(coreheader.Info{
-			ChainID: app.chainID,
-			Height:  req.Height,
-			Time:    req.Time,
-			Hash:    req.Hash,
-			AppHash: app.LastCommitID().Hash,
-		}).
-		WithConsensusParams(app.GetConsensusParams(app.finalizeBlockState.Context())).
-		WithVoteInfos(req.DecidedLastCommit.Votes).
-		WithExecMode(sdk.ExecModeFinalize).
-		WithCometInfo(cometInfo{
-			Misbehavior:     req.Misbehavior,
-			ValidatorsHash:  req.NextValidatorsHash,
-			ProposerAddress: req.ProposerAddress,
-			LastCommit:      req.DecidedLastCommit,
-		}).
-		WithParallelExec(app.enableParallelTxExecution))
-
-	// GasMeter must be set after we get a context with updated consensus params.
-	gasMeter := app.getBlockGasMeter(app.finalizeBlockState.Context())
-	app.finalizeBlockState.SetContext(app.finalizeBlockState.Context().WithBlockGasMeter(gasMeter))
-
-	if app.checkState != nil {
-		app.checkState.SetContext(app.checkState.Context().
-			WithBlockGasMeter(gasMeter).
-			WithHeaderHash(req.Hash))
-	}
-
-	preblockEvents, err := app.preBlock(req)
-	if err != nil {
-		return nil, err
-	}
-
-	events = append(events, preblockEvents...)
-
-	beginBlock, err := app.beginBlock(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// First check for an abort signal after beginBlock, as it's the first place
-	// we spend any significant amount of time.
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-		// continue
-	}
-
-	events = append(events, beginBlock.Events...)
-
-	// Reset the gas meter so that the AnteHandlers aren't required to
-	gasMeter = app.getBlockGasMeter(app.finalizeBlockState.Context())
-	app.finalizeBlockState.SetContext(app.finalizeBlockState.Context().WithBlockGasMeter(gasMeter))
-
-	// Iterate over all raw transactions in the proposal and attempt to execute
-	// them, gathering the execution results.
-	//
-	// NOTE: Not all raw transactions may adhere to the sdk.Tx interface, e.g.
-	// vote extensions, so skip those.
-	startExecTx := time.Now()
-	app.logger.Info("Time ExecTxs", "block height", req.Height, "start exec tx", startExecTx)
-	txResults := app.execTx(app.finalizeBlockState.Context(), batchTxReq, req.Txs)
-	endExecTx := time.Now()
-	spendTime := endExecTx.Sub(startExecTx).Milliseconds()
-	if spendTime > 0 {
-		app.logger.Info("Time ExecTxs", "block height", req.Height, "end exec tx", endExecTx.Format(time.StampMicro),
-			"spend time", spendTime, "TPS", 1000*len(req.Txs)/int(spendTime))
-	}
-	if app.finalizeBlockState.ms.TracingEnabled() {
-		app.finalizeBlockState.ms = app.finalizeBlockState.ms.SetTracingContext(nil).(storetypes.CacheMultiStore)
-	}
-	startEndBlock := time.Now()
-	endBlock, err := app.endBlock(app.finalizeBlockState.Context())
-	endEndBlock := time.Now()
-	spendTime = endEndBlock.Sub(startEndBlock).Milliseconds()
-	if spendTime > 0 {
-		app.logger.Info("Time EndBlock", "block height", req.Height, "spend time", spendTime)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	// check after endBlock if we should abort, to avoid propagating the result
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-		// continue
-	}
-
-	events = append(events, endBlock.Events...)
-	cp := app.GetConsensusParams(app.finalizeBlockState.Context())
 
 	return &abci.ResponseFinalizeBlock{
-		Events:                events,
-		TxResults:             txResults,
-		ValidatorUpdates:      endBlock.ValidatorUpdates,
-		ConsensusParamUpdates: &cp,
+		Events:                []abci.Event{},
+		ConsensusParamUpdates: &tmproto.ConsensusParams{},
+		ValidatorUpdates:      []abci.ValidatorUpdate{},
+		TxResults:             txRes,
 	}, nil
+
+	//if err := app.checkHalt(req.Height, req.Time); err != nil {
+	//	return nil, err
+	//}
+	//
+	//if err := app.validateFinalizeBlockHeight(req); err != nil {
+	//	return nil, err
+	//}
+	//
+	//if app.cms.TracingEnabled() {
+	//	app.cms.SetTracingContext(map[string]any{"blockHeight": req.Height})
+	//}
+	//
+	//header := cmtproto.Header{
+	//	ChainID:            app.chainID,
+	//	Height:             req.Height,
+	//	Time:               req.Time,
+	//	ProposerAddress:    req.ProposerAddress,
+	//	NextValidatorsHash: req.NextValidatorsHash,
+	//	AppHash:            app.LastCommitID().Hash,
+	//}
+	//
+	//// finalizeBlockState should be set on InitChain or ProcessProposal. If it is
+	//// nil, it means we are replaying this block and we need to set the state here
+	//// given that during block replay ProcessProposal is not executed by CometBFT.
+	//if app.finalizeBlockState == nil {
+	//	app.setState(execModeFinalize, header)
+	//}
+	//
+	//// todo remove this check after we have a better way to handle replays
+	//app.enableParallelTxExecution = true
+	//if app.enableParallelTxExecution && !app.disableBlockGasMeter {
+	//	txGroup, gErr := app.GroupByTxs(app.finalizeBlockState.Context(), req.Txs)
+	//	if gErr != nil {
+	//		app.logger.Error("parallel transaction grouping failed", "height", req.Height, "time", req.Time, "hash", fmt.Sprintf("%X", req.Hash), gErr, "gErr")
+	//		return nil, gErr
+	//	}
+	//	batchTxReq.AssociateTxs = txGroup.associateTxs
+	//	batchTxReq.OtherEntries = txGroup.otherTxs
+	//	batchTxReq.SeqEntries = txGroup.sequentialTxs
+	//}
+	//
+	//// Context is now updated with Header information.
+	//app.finalizeBlockState.SetContext(app.finalizeBlockState.Context().
+	//	WithBlockHeader(header).
+	//	WithHeaderHash(req.Hash).
+	//	WithHeaderInfo(coreheader.Info{
+	//		ChainID: app.chainID,
+	//		Height:  req.Height,
+	//		Time:    req.Time,
+	//		Hash:    req.Hash,
+	//		AppHash: app.LastCommitID().Hash,
+	//	}).
+	//	WithConsensusParams(app.GetConsensusParams(app.finalizeBlockState.Context())).
+	//	WithVoteInfos(req.DecidedLastCommit.Votes).
+	//	WithExecMode(sdk.ExecModeFinalize).
+	//	WithCometInfo(cometInfo{
+	//		Misbehavior:     req.Misbehavior,
+	//		ValidatorsHash:  req.NextValidatorsHash,
+	//		ProposerAddress: req.ProposerAddress,
+	//		LastCommit:      req.DecidedLastCommit,
+	//	}).
+	//	WithParallelExec(app.enableParallelTxExecution))
+	//
+	//// GasMeter must be set after we get a context with updated consensus params.
+	//gasMeter := app.getBlockGasMeter(app.finalizeBlockState.Context())
+	//app.finalizeBlockState.SetContext(app.finalizeBlockState.Context().WithBlockGasMeter(gasMeter))
+	//
+	//if app.checkState != nil {
+	//	app.checkState.SetContext(app.checkState.Context().
+	//		WithBlockGasMeter(gasMeter).
+	//		WithHeaderHash(req.Hash))
+	//}
+	//
+	//preblockEvents, err := app.preBlock(req)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//events = append(events, preblockEvents...)
+	//
+	//beginBlock, err := app.beginBlock(req)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//// First check for an abort signal after beginBlock, as it's the first place
+	//// we spend any significant amount of time.
+	//select {
+	//case <-ctx.Done():
+	//	return nil, ctx.Err()
+	//default:
+	//	// continue
+	//}
+	//
+	//events = append(events, beginBlock.Events...)
+	//
+	//// Reset the gas meter so that the AnteHandlers aren't required to
+	//gasMeter = app.getBlockGasMeter(app.finalizeBlockState.Context())
+	//app.finalizeBlockState.SetContext(app.finalizeBlockState.Context().WithBlockGasMeter(gasMeter))
+	//
+	//// Iterate over all raw transactions in the proposal and attempt to execute
+	//// them, gathering the execution results.
+	////
+	//// NOTE: Not all raw transactions may adhere to the sdk.Tx interface, e.g.
+	//// vote extensions, so skip those.
+	//startExecTx := time.Now()
+	//app.logger.Info("Time ExecTxs", "block height", req.Height, "start exec tx", startExecTx)
+	//txResults := app.execTx(app.finalizeBlockState.Context(), batchTxReq, req.Txs)
+	//endExecTx := time.Now()
+	//spendTime := endExecTx.Sub(startExecTx).Milliseconds()
+	//if spendTime > 0 {
+	//	app.logger.Info("Time ExecTxs", "block height", req.Height, "end exec tx", endExecTx.Format(time.StampMicro),
+	//		"spend time", spendTime, "TPS", 1000*len(req.Txs)/int(spendTime))
+	//}
+	//if app.finalizeBlockState.ms.TracingEnabled() {
+	//	app.finalizeBlockState.ms = app.finalizeBlockState.ms.SetTracingContext(nil).(storetypes.CacheMultiStore)
+	//}
+	//startEndBlock := time.Now()
+	//endBlock, err := app.endBlock(app.finalizeBlockState.Context())
+	//endEndBlock := time.Now()
+	//spendTime = endEndBlock.Sub(startEndBlock).Milliseconds()
+	//if spendTime > 0 {
+	//	app.logger.Info("Time EndBlock", "block height", req.Height, "spend time", spendTime)
+	//}
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//// check after endBlock if we should abort, to avoid propagating the result
+	//select {
+	//case <-ctx.Done():
+	//	return nil, ctx.Err()
+	//default:
+	//	// continue
+	//}
+	//
+	//events = append(events, endBlock.Events...)
+	//cp := app.GetConsensusParams(app.finalizeBlockState.Context())
+	//
+	//return &abci.ResponseFinalizeBlock{
+	//	Events:                events,
+	//	TxResults:             txResults,
+	//	ValidatorUpdates:      endBlock.ValidatorUpdates,
+	//	ConsensusParamUpdates: &cp,
+	//}, nil
 }
 
 // FinalizeBlock will execute the block proposal provided by RequestFinalizeBlock.
