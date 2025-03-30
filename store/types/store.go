@@ -338,6 +338,7 @@ const (
 	StoreTypeMemory
 	StoreTypeSMT
 	StoreTypePersistent
+	StoreTypeCacheCommit
 )
 
 func (st StoreType) String() string {

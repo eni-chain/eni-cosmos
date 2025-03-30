@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"cosmossdk.io/store/cachekv"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	dbm "github.com/cosmos/cosmos-db"
 	protoio "github.com/cosmos/gogoproto/io"
@@ -620,7 +621,6 @@ func (rs *Store) CacheMultiStoreWithVersion(version int64) (types.CacheMultiStor
 					return nil, err
 				}
 			}
-
 		default:
 			cacheStore = store
 		}
@@ -1023,11 +1023,12 @@ func (rs *Store) loadCommitStoreFromParams(key types.StoreKey, id types.CommitID
 		var store types.CommitKVStore
 		var err error
 
-		if params.initialVersion == 0 {
-			store, err = iavl.LoadStore(db, rs.logger, key, id, rs.iavlCacheSize, rs.iavlDisableFastNode, rs.metrics)
-		} else {
-			store, err = iavl.LoadStoreWithInitialVersion(db, rs.logger, key, id, params.initialVersion, rs.iavlCacheSize, rs.iavlDisableFastNode, rs.metrics)
-		}
+		//if params.initialVersion == 0 {
+		//	store, err = iavl.LoadStore(db, rs.logger, key, id, rs.iavlCacheSize, rs.iavlDisableFastNode, rs.metrics)
+		//} else {
+		//	store, err = iavl.LoadStoreWithInitialVersion(db, rs.logger, key, id, params.initialVersion, rs.iavlCacheSize, rs.iavlDisableFastNode, rs.metrics)
+		//}
+		store = cachekv.NewCommitStore(db)
 
 		if err != nil {
 			return nil, err
@@ -1041,7 +1042,17 @@ func (rs *Store) loadCommitStoreFromParams(key types.StoreKey, id types.CommitID
 		}
 
 		return store, err
+	case types.StoreTypeCacheCommit:
+		var store types.CommitKVStore
+		store = cachekv.NewCommitStore(db)
+		if rs.interBlockCache != nil {
+			// Wrap and get a CommitKVStore with inter-block caching. Note, this should
+			// only wrap the primary CommitKVStore, not any store that is already
+			// branched as that will create unexpected behavior.
+			store = rs.interBlockCache.GetStoreCache(key, store)
+		}
 
+		return store, nil
 	case types.StoreTypeDB:
 		return commitDBStoreAdapter{Store: dbadapter.Store{DB: db}}, nil
 

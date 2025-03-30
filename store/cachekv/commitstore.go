@@ -2,43 +2,37 @@ package cachekv
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"sort"
 	"sync"
-	"time"
-
-	dbm "github.com/cosmos/cosmos-db"
 
 	"cosmossdk.io/math"
 	"cosmossdk.io/store/cachekv/internal"
 	"cosmossdk.io/store/internal/conv"
 	"cosmossdk.io/store/internal/kv"
+	pruningtypes "cosmossdk.io/store/pruning/types"
 	"cosmossdk.io/store/tracekv"
 	"cosmossdk.io/store/types"
+	dbm "github.com/cosmos/cosmos-db"
 )
 
-// cValue represents a cached value.
-// If dirty is true, it indicates the cached value is different from the underlying value.
-type cValue struct {
-	value []byte
-	dirty bool
-}
-
 // Store wraps an in-memory cache around an underlying types.KVStore.
-type Store struct {
+type CommitStore struct {
+	version       int64
 	mtx           sync.Mutex
 	cache         map[string]*cValue
 	unsortedCache map[string]struct{}
 	sortedCache   internal.BTree // always ascending sorted
-	parent        types.KVStore
+	parent        dbm.DB
+	options       pruningtypes.PruningOptions
 }
 
-var _ types.CacheKVStore = (*Store)(nil)
+var _ types.KVStore = (*CommitStore)(nil)
+var _ types.Committer = (*CommitStore)(nil)
 
 // NewStore creates a new Store object
-func NewStore(parent types.KVStore) *Store {
-	return &Store{
+func NewCommitStore(parent dbm.DB) *CommitStore {
+	return &CommitStore{
 		cache:         make(map[string]*cValue),
 		unsortedCache: make(map[string]struct{}),
 		sortedCache:   internal.NewBTree(),
@@ -47,32 +41,18 @@ func NewStore(parent types.KVStore) *Store {
 }
 
 // GetStoreType implements Store.
-func (store *Store) GetStoreType() types.StoreType {
-	return store.parent.GetStoreType()
+func (store *CommitStore) GetStoreType() types.StoreType {
+	return types.StoreTypeCacheCommit
 }
 
 // Get implements types.KVStore.
-func (store *Store) Get(key []byte) (value []byte) {
-	store.mtx.Lock()
-	defer store.mtx.Unlock()
-
-	types.AssertValidKey(key)
-
-	cacheValue, ok := store.cache[conv.UnsafeBytesToStr(key)]
-	if !ok {
-		value = store.parent.Get(key)
-		store.setCacheValue(key, value, false)
-	} else {
-		value = cacheValue.value
-	}
-
+func (store *CommitStore) Get(key []byte) (value []byte) {
+	value, _ = store.parent.Get(key)
 	return value
 }
 
 // Set implements types.KVStore.
-func (store *Store) Set(key, value []byte) {
-	types.AssertValidKey(key)
-	types.AssertValidValue(value)
+func (store *CommitStore) Set(key, value []byte) {
 
 	store.mtx.Lock()
 	defer store.mtx.Unlock()
@@ -80,22 +60,20 @@ func (store *Store) Set(key, value []byte) {
 }
 
 // Has implements types.KVStore.
-func (store *Store) Has(key []byte) bool {
-	value := store.Get(key)
-	return value != nil
+func (store *CommitStore) Has(key []byte) bool {
+	value, _ := store.parent.Has(key)
+	return value
 }
 
 // Delete implements types.KVStore.
-func (store *Store) Delete(key []byte) {
-	types.AssertValidKey(key)
-
+func (store *CommitStore) Delete(key []byte) {
 	store.mtx.Lock()
 	defer store.mtx.Unlock()
 
 	store.setCacheValue(key, nil, true)
 }
 
-func (store *Store) resetCaches() {
+func (store *CommitStore) resetCaches() {
 	if len(store.cache) > 100_000 {
 		// Cache is too large. We likely did something linear time
 		// (e.g. Epoch block, Genesis block, etc). Free the old caches from memory, and let them get re-allocated.
@@ -118,68 +96,68 @@ func (store *Store) resetCaches() {
 }
 
 // Implements Cachetypes.KVStore.
-func (store *Store) Write() {
-	store.mtx.Lock()
-	defer store.mtx.Unlock()
-
-	if len(store.cache) == 0 && len(store.unsortedCache) == 0 {
-		store.sortedCache = internal.NewBTree()
-		return
-	}
-
-	type cEntry struct {
-		key string
-		val *cValue
-	}
-
-	// We need a copy of all of the keys.
-	// Not the best. To reduce RAM pressure, we copy the values as well
-	// and clear out the old caches right after the copy.
-	sortedCache := make([]cEntry, 0, len(store.cache))
-
-	for key, dbValue := range store.cache {
-		if dbValue.dirty {
-			sortedCache = append(sortedCache, cEntry{key, dbValue})
-		}
-	}
-	store.resetCaches()
-	sort.Slice(sortedCache, func(i, j int) bool {
-		return sortedCache[i].key < sortedCache[j].key
-	})
-
-	start := time.Now()
-	// TODO: Consider allowing usage of Batch, which would allow the write to
-	// at least happen atomically.
-	for _, obj := range sortedCache {
-		// We use []byte(key) instead of conv.UnsafeStrToBytes because we cannot
-		// be sure if the underlying store might do a save with the byteslice or
-		// not. Once we get confirmation that .Delete is guaranteed not to
-		// save the byteslice, then we can assume only a read-only copy is sufficient.
-		if obj.val.value != nil {
-			// It already exists in the parent, hence update it.
-			store.parent.Set([]byte(obj.key), obj.val.value)
-		} else {
-			store.parent.Delete([]byte(obj.key))
-		}
-	}
-	spend := time.Since(start).Milliseconds()
-	if spend > 0 {
-		fmt.Println("Write Cache spend time:", spend, "cache count:", len(sortedCache))
-		if spend > 1000 {
-			for i := 0; i < 10; i++ {
-				fmt.Printf("Sample: %s,%x ", sortedCache[i].key, sortedCache[i].val.value)
-			}
-		}
-	}
-}
+//func (store *CommitStore) Write() {
+//	store.mtx.Lock()
+//	defer store.mtx.Unlock()
+//
+//	if len(store.cache) == 0 && len(store.unsortedCache) == 0 {
+//		store.sortedCache = internal.NewBTree()
+//		return
+//	}
+//
+//	type cEntry struct {
+//		key string
+//		val *cValue
+//	}
+//
+//	// We need a copy of all of the keys.
+//	// Not the best. To reduce RAM pressure, we copy the values as well
+//	// and clear out the old caches right after the copy.
+//	sortedCache := make([]cEntry, 0, len(store.cache))
+//
+//	for key, dbValue := range store.cache {
+//		if dbValue.dirty {
+//			sortedCache = append(sortedCache, cEntry{key, dbValue})
+//		}
+//	}
+//	store.resetCaches()
+//	sort.Slice(sortedCache, func(i, j int) bool {
+//		return sortedCache[i].key < sortedCache[j].key
+//	})
+//
+//	start := time.Now()
+//	// TODO: Consider allowing usage of Batch, which would allow the write to
+//	// at least happen atomically.
+//	for _, obj := range sortedCache {
+//		// We use []byte(key) instead of conv.UnsafeStrToBytes because we cannot
+//		// be sure if the underlying store might do a save with the byteslice or
+//		// not. Once we get confirmation that .Delete is guaranteed not to
+//		// save the byteslice, then we can assume only a read-only copy is sufficient.
+//		if obj.val.value != nil {
+//			// It already exists in the parent, hence update it.
+//			store.parent.Set([]byte(obj.key), obj.val.value)
+//		} else {
+//			store.parent.Delete([]byte(obj.key))
+//		}
+//	}
+//	spend := time.Since(start).Milliseconds()
+//	if spend > 0 {
+//		fmt.Println("Write Cache spend time:", spend, "cache count:", len(sortedCache))
+//		if spend > 1000 {
+//			for i := 0; i < 10; i++ {
+//				fmt.Printf("Sample: %s,%x ", sortedCache[i].key, sortedCache[i].val.value)
+//			}
+//		}
+//	}
+//}
 
 // CacheWrap implements CacheWrapper.
-func (store *Store) CacheWrap() types.CacheWrap {
+func (store *CommitStore) CacheWrap() types.CacheWrap {
 	return NewStore(store)
 }
 
 // CacheWrapWithTrace implements the CacheWrapper interface.
-func (store *Store) CacheWrapWithTrace(w io.Writer, tc types.TraceContext) types.CacheWrap {
+func (store *CommitStore) CacheWrapWithTrace(w io.Writer, tc types.TraceContext) types.CacheWrap {
 	return NewStore(tracekv.NewStore(store, w, tc))
 }
 
@@ -187,16 +165,16 @@ func (store *Store) CacheWrapWithTrace(w io.Writer, tc types.TraceContext) types
 // Iteration
 
 // Iterator implements types.KVStore.
-func (store *Store) Iterator(start, end []byte) types.Iterator {
+func (store *CommitStore) Iterator(start, end []byte) types.Iterator {
 	return store.iterator(start, end, true)
 }
 
 // ReverseIterator implements types.KVStore.
-func (store *Store) ReverseIterator(start, end []byte) types.Iterator {
+func (store *CommitStore) ReverseIterator(start, end []byte) types.Iterator {
 	return store.iterator(start, end, false)
 }
 
-func (store *Store) iterator(start, end []byte, ascending bool) types.Iterator {
+func (store *CommitStore) iterator(start, end []byte, ascending bool) types.Iterator {
 	store.mtx.Lock()
 	defer store.mtx.Unlock()
 
@@ -209,10 +187,10 @@ func (store *Store) iterator(start, end []byte, ascending bool) types.Iterator {
 	)
 
 	if ascending {
-		parent = store.parent.Iterator(start, end)
+		parent, _ = store.parent.Iterator(start, end)
 		cache, err = isoSortedCache.Iterator(start, end)
 	} else {
-		parent = store.parent.ReverseIterator(start, end)
+		parent, _ = store.parent.ReverseIterator(start, end)
 		cache, err = isoSortedCache.ReverseIterator(start, end)
 	}
 	if err != nil {
@@ -222,90 +200,8 @@ func (store *Store) iterator(start, end []byte, ascending bool) types.Iterator {
 	return internal.NewCacheMergeIterator(parent, cache, ascending)
 }
 
-func findStartIndex(strL []string, startQ string) int {
-	// Modified binary search to find the very first element in >=startQ.
-	if len(strL) == 0 {
-		return -1
-	}
-
-	var left, right, mid int
-	right = len(strL) - 1
-	for left <= right {
-		mid = (left + right) >> 1
-		midStr := strL[mid]
-		if midStr == startQ {
-			// Handle condition where there might be multiple values equal to startQ.
-			// We are looking for the very first value < midStL, that i+1 will be the first
-			// element >= midStr.
-			for i := mid - 1; i >= 0; i-- {
-				if strL[i] != midStr {
-					return i + 1
-				}
-			}
-			return 0
-		}
-		if midStr < startQ {
-			left = mid + 1
-		} else { // midStrL > startQ
-			right = mid - 1
-		}
-	}
-	if left >= 0 && left < len(strL) && strL[left] >= startQ {
-		return left
-	}
-	return -1
-}
-
-func findEndIndex(strL []string, endQ string) int {
-	if len(strL) == 0 {
-		return -1
-	}
-
-	// Modified binary search to find the very first element <endQ.
-	var left, right, mid int
-	right = len(strL) - 1
-	for left <= right {
-		mid = (left + right) >> 1
-		midStr := strL[mid]
-		if midStr == endQ {
-			// Handle condition where there might be multiple values equal to startQ.
-			// We are looking for the very first value < midStL, that i+1 will be the first
-			// element >= midStr.
-			for i := mid - 1; i >= 0; i-- {
-				if strL[i] < midStr {
-					return i + 1
-				}
-			}
-			return 0
-		}
-		if midStr < endQ {
-			left = mid + 1
-		} else { // midStrL > startQ
-			right = mid - 1
-		}
-	}
-
-	// Binary search failed, now let's find a value less than endQ.
-	for i := right; i >= 0; i-- {
-		if strL[i] < endQ {
-			return i
-		}
-	}
-
-	return -1
-}
-
-type sortState int
-
-const (
-	stateUnsorted sortState = iota
-	stateAlreadySorted
-)
-
-const minSortSize = 1024
-
 // Constructs a slice of dirty items, to use w/ memIterator.
-func (store *Store) dirtyItems(start, end []byte) {
+func (store *CommitStore) dirtyItems(start, end []byte) {
 	startStr, endStr := conv.UnsafeBytesToStr(start), conv.UnsafeBytesToStr(end)
 	if end != nil && startStr > endStr {
 		// Nothing to do here.
@@ -379,7 +275,7 @@ func (store *Store) dirtyItems(start, end []byte) {
 	store.clearUnsortedCacheSubset(kvL, stateAlreadySorted)
 }
 
-func (store *Store) clearUnsortedCacheSubset(unsorted []*kv.Pair, sortState sortState) {
+func (store *CommitStore) clearUnsortedCacheSubset(unsorted []*kv.Pair, sortState sortState) {
 	n := len(store.unsortedCache)
 	if len(unsorted) == n { // This pattern allows the Go compiler to emit the map clearing idiom for the entire map.
 		for key := range store.unsortedCache {
@@ -408,7 +304,7 @@ func (store *Store) clearUnsortedCacheSubset(unsorted []*kv.Pair, sortState sort
 
 // Only entrypoint to mutate store.cache.
 // A `nil` value means a deletion.
-func (store *Store) setCacheValue(key, value []byte, dirty bool) {
+func (store *CommitStore) setCacheValue(key, value []byte, dirty bool) {
 	keyStr := conv.UnsafeBytesToStr(key)
 	store.cache[keyStr] = &cValue{
 		value: value,
@@ -417,4 +313,35 @@ func (store *Store) setCacheValue(key, value []byte, dirty bool) {
 	if dirty {
 		store.unsortedCache[keyStr] = struct{}{}
 	}
+}
+
+func (c *CommitStore) Commit() types.CommitID {
+	batch := c.parent.NewBatch()
+	for k, v := range c.cache {
+		key := conv.UnsafeStrToBytes(k)
+		if len(v.value) == 0 {
+			batch.Delete(key)
+		} else {
+			batch.Set(key, v.value)
+		}
+	}
+	batch.Write()
+	c.version++
+	return types.CommitID{Version: c.version}
+}
+
+func (c *CommitStore) LastCommitID() types.CommitID {
+	return types.CommitID{Version: c.version}
+}
+
+func (c *CommitStore) WorkingHash() []byte {
+	return []byte{}
+}
+
+func (c *CommitStore) SetPruning(options pruningtypes.PruningOptions) {
+	c.options = options
+}
+
+func (c *CommitStore) GetPruning() pruningtypes.PruningOptions {
+	return c.options
 }
