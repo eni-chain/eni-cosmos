@@ -2,8 +2,11 @@ package cachekv
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"sync"
 
 	"cosmossdk.io/math"
@@ -25,6 +28,7 @@ type CommitStore struct {
 	sortedCache   internal.BTree // always ascending sorted
 	parent        dbm.DB
 	options       pruningtypes.PruningOptions
+	rootHash      []byte
 }
 
 var _ types.KVStore = (*CommitStore)(nil)
@@ -32,12 +36,14 @@ var _ types.Committer = (*CommitStore)(nil)
 
 // NewStore creates a new Store object
 func NewCommitStore(parent dbm.DB) *CommitStore {
-	return &CommitStore{
+	store := &CommitStore{
 		cache:         make(map[string]*cValue),
 		unsortedCache: make(map[string]struct{}),
 		sortedCache:   internal.NewBTree(),
 		parent:        parent,
 	}
+	store.version = store.getLastVersion()
+	return store
 }
 
 // GetStoreType implements Store.
@@ -93,6 +99,7 @@ func (store *CommitStore) resetCaches() {
 		}
 	}
 	store.sortedCache = internal.NewBTree()
+	fmt.Println("Reset Cache")
 }
 
 // Implements Cachetypes.KVStore.
@@ -317,6 +324,8 @@ func (store *CommitStore) setCacheValue(key, value []byte, dirty bool) {
 
 func (c *CommitStore) Commit() types.CommitID {
 	batch := c.parent.NewBatch()
+	count := 0
+	data := []byte{}
 	for k, v := range c.cache {
 		key := conv.UnsafeStrToBytes(k)
 		if len(v.value) == 0 {
@@ -324,10 +333,20 @@ func (c *CommitStore) Commit() types.CommitID {
 		} else {
 			batch.Set(key, v.value)
 		}
+		count++
+		//sha256 k||v
+		data = append(data, key...)
+		data = append(data, v.value...)
+		hash := sha256.Sum256(data)
+		data = hash[:]
 	}
 	batch.Write()
+	fmt.Println("Commit Cache Count:", count)
 	c.version++
-	return types.CommitID{Version: c.version}
+	c.setLastVersion(c.version)
+	c.resetCaches()
+	c.rootHash = data
+	return types.CommitID{Version: c.version, Hash: c.rootHash}
 }
 
 func (c *CommitStore) LastCommitID() types.CommitID {
@@ -335,7 +354,7 @@ func (c *CommitStore) LastCommitID() types.CommitID {
 }
 
 func (c *CommitStore) WorkingHash() []byte {
-	return []byte{}
+	return c.rootHash
 }
 
 func (c *CommitStore) SetPruning(options pruningtypes.PruningOptions) {
@@ -344,4 +363,19 @@ func (c *CommitStore) SetPruning(options pruningtypes.PruningOptions) {
 
 func (c *CommitStore) GetPruning() pruningtypes.PruningOptions {
 	return c.options
+}
+
+func (c *CommitStore) setLastVersion(version int64) {
+	c.parent.Set([]byte("LastVersion"), []byte(strconv.FormatInt(version, 10)))
+}
+func (c *CommitStore) getLastVersion() int64 {
+	bz, err := c.parent.Get([]byte("LastVersion"))
+	if err != nil || bz == nil {
+		return 0
+	}
+	version, err := strconv.ParseInt(string(bz), 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	return version
 }
