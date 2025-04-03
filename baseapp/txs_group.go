@@ -2,13 +2,12 @@ package baseapp
 
 import (
 	"fmt"
-	"sort"
-	"sync"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/evm/types"
 	"github.com/cosmos/cosmos-sdk/x/evm/types/ethtx"
 	"github.com/ethereum/go-ethereum/common"
+	"sort"
+	"sync"
 )
 
 // TxGroup manages transaction grouping and processing
@@ -16,9 +15,10 @@ type TxGroup struct {
 	evmTxMetas    []*TxMeta
 	txDecoder     sdk.TxDecoder
 	groups        map[string][]*TxMeta
-	associateTxs  []*sdk.DeliverTxEntry
-	otherTxs      []*sdk.DeliverTxEntry
-	sequentialTxs []*sdk.DeliverTxEntry
+	associateTxs  [][]byte
+	otherTxs      [][]byte
+	sequentialTxs [][]byte
+	txGroupDAG    *TxGroupDAG
 }
 
 // TxMeta represents transaction metadata
@@ -47,14 +47,18 @@ func NewTxGroup(txDecoder sdk.TxDecoder, capacity int) *TxGroup {
 		evmTxMetas:    make([]*TxMeta, 0, capacity),
 		txDecoder:     txDecoder,
 		groups:        make(map[string][]*TxMeta),
-		associateTxs:  make([]*sdk.DeliverTxEntry, 0, capacity/4),
-		otherTxs:      make([]*sdk.DeliverTxEntry, 0, capacity),
-		sequentialTxs: make([]*sdk.DeliverTxEntry, 0, capacity/2),
+		associateTxs:  make([][]byte, 0, capacity),
+		otherTxs:      make([][]byte, 0, capacity),
+		sequentialTxs: make([][]byte, 0, capacity),
+		txGroupDAG: &TxGroupDAG{
+			txs: make([][]byte, 0, capacity),
+			dag: make([]int, 0),
+		},
 	}
 }
 
 // GroupByTxs processes and groups transactions
-func (app *BaseApp) GroupByTxs(ctx sdk.Context, txs [][]byte) (*TxGroup, error) {
+func (app *BaseApp) GroupByTxs(txs [][]byte) (*TxGroup, error) {
 	txCount := len(txs)
 	txGroup := NewTxGroup(app.TxDecode, txCount)
 
@@ -66,7 +70,7 @@ func (app *BaseApp) GroupByTxs(ctx sdk.Context, txs [][]byte) (*TxGroup, error) 
 		wg.Add(1)
 		go func(idx int, rawTx []byte) {
 			defer wg.Done()
-			result := processTransaction(ctx, txGroup, idx, rawTx)
+			result := processTransaction(txGroup, idx, rawTx)
 			results <- result
 		}(i, tx)
 	}
@@ -87,19 +91,18 @@ func (app *BaseApp) GroupByTxs(ctx sdk.Context, txs [][]byte) (*TxGroup, error) 
 		if result.meta != nil {
 			txGroup.evmTxMetas = append(txGroup.evmTxMetas, result.meta)
 		} else if result.entry != nil {
-			txGroup.otherTxs = append(txGroup.otherTxs, result.entry)
+			txGroup.otherTxs = append(txGroup.otherTxs, result.entry.Tx)
 		}
 	}
 
 	if len(failedTxs) > 0 {
-		ctx.Logger().Error("Failed transactions", "count", len(failedTxs), "details", failedTxs)
 		return nil, fmt.Errorf("failed to process %d transactions", len(failedTxs))
 	}
 
 	if err := txGroup.groupByAddress(); err != nil {
 		return nil, err
 	}
-	if err := txGroup.groupSequential(); err != nil {
+	if err := txGroup.getAssociateTxs(); err != nil {
 		return nil, err
 	}
 
@@ -107,7 +110,7 @@ func (app *BaseApp) GroupByTxs(ctx sdk.Context, txs [][]byte) (*TxGroup, error) 
 }
 
 // processTransaction handles individual transaction processing
-func processTransaction(ctx sdk.Context, txGroup *TxGroup, idx int, rawTx []byte) txResult {
+func processTransaction(txGroup *TxGroup, idx int, rawTx []byte) txResult {
 	var result txResult
 	defer func() {
 		if r := recover(); r != nil {
@@ -125,7 +128,7 @@ func processTransaction(ctx sdk.Context, txGroup *TxGroup, idx int, rawTx []byte
 		return txResult{index: idx, entry: &sdk.DeliverTxEntry{Tx: rawTx, TxIndex: idx}}
 	}
 
-	msgData, sender, isAssociate, err := txGroup.filterEvmTx(ctx, typedTx)
+	msgData, sender, isAssociate, err := txGroup.filterEvmTx(typedTx)
 	if err != nil {
 		return txResult{index: idx, err: err}
 	}
@@ -140,7 +143,7 @@ func processTransaction(ctx sdk.Context, txGroup *TxGroup, idx int, rawTx []byte
 }
 
 // filterEvmTx extracts EVM transaction data
-func (t *TxGroup) filterEvmTx(ctx sdk.Context, tx sdk.Tx) (interface{}, common.Address, bool, error) {
+func (t *TxGroup) filterEvmTx(tx sdk.Tx) (interface{}, common.Address, bool, error) {
 	msg := MustGetEVMTransactionMessage(tx)
 	txData, err := types.UnpackTxData(msg.Data)
 	if err != nil {
@@ -217,35 +220,67 @@ func (t *TxGroup) groupByAddress() error {
 	return nil
 }
 
-// groupSequential organizes transactions into sequential groups with priority for associateTxs
-func (t *TxGroup) groupSequential() error {
-	for _, group := range t.groups {
-		if len(group) == 1 {
-			entry := &sdk.DeliverTxEntry{
-				Tx:      group[0].RawTx,
-				TxIndex: group[0].Index,
-			}
-			if group[0].IsAssociate {
-				t.associateTxs = append(t.associateTxs, entry)
+// getAssociateTxs gets associate transactions and stores them in associateTxs
+func (t *TxGroup) getAssociateTxs() error {
+	for addr, group := range t.groups {
+		var remaining []*TxMeta
+
+		for i := 0; i < len(group); i++ {
+			if group[i].IsAssociate {
+				t.associateTxs = append(t.associateTxs, group[i].RawTx)
 			} else {
-				t.otherTxs = append(t.otherTxs, entry)
+				remaining = append(remaining, group[i])
 			}
-			continue
 		}
 
-		for _, meta := range group {
-			entry := &sdk.DeliverTxEntry{
-				Tx:      meta.RawTx,
-				TxIndex: meta.Index,
-			}
-			if meta.IsAssociate {
-				t.associateTxs = append(t.associateTxs, entry)
-			} else {
-				t.sequentialTxs = append(t.sequentialTxs, entry)
-			}
+		if len(remaining) > 0 {
+			t.groups[addr] = remaining
+		} else {
+			delete(t.groups, addr)
 		}
 	}
 	return nil
+}
+
+func (t *TxGroup) buildSampDag() {
+	t.batchAssociateTxs()
+	t.batchOtherTxs()
+	t.batchAccountGroup()
+
+}
+
+func (t *TxGroup) batchAssociateTxs() {
+	t.txGroupDAG.txs = append(t.txGroupDAG.txs, t.associateTxs...)
+	t.txGroupDAG.dag = append(t.txGroupDAG.dag, len(t.associateTxs))
+}
+
+func (t *TxGroup) batchOtherTxs() {
+	t.txGroupDAG.txs = append(t.txGroupDAG.txs, t.otherTxs...)
+	t.txGroupDAG.dag = append(t.txGroupDAG.dag, len(t.otherTxs))
+}
+
+// batchAccountGroup account group by column
+func (t *TxGroup) batchAccountGroup() {
+	maxLen := 0
+	for _, Txs := range t.groups {
+		if len(Txs) > maxLen {
+			maxLen = len(Txs)
+		}
+	}
+
+	for i := 0; i < maxLen; i++ {
+		group := make([][]byte, 0)
+		for _, Txs := range t.groups {
+			if i < len(Txs) {
+				group = append(group, Txs[i].RawTx)
+			}
+		}
+
+		if len(group) > 0 {
+			t.txGroupDAG.txs = append(t.txGroupDAG.txs, group...)
+			t.txGroupDAG.dag = append(t.txGroupDAG.dag, len(group))
+		}
+	}
 }
 
 // MustGetEVMTransactionMessage extracts EVM message from transaction
