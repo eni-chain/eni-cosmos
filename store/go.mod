@@ -27,14 +27,13 @@ require (
 )
 
 require (
+	cosmossdk.io/core v0.12.1-0.20240725072823-6a2d039e1212
 	github.com/cometbft/cometbft-db v1.0.4
 	github.com/eni-chain/eni-db v0.0.2-0.20250402180148-c194e1a2b1d0
 	github.com/google/btree v1.1.3
-	github.com/tendermint/tendermint v0.34.20
 )
 
 require (
-	cosmossdk.io/core v0.12.1-0.20240725072823-6a2d039e1212 // indirect
 	github.com/DataDog/zstd v1.5.6 // indirect
 	github.com/alitto/pond v1.8.3 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
@@ -55,8 +54,6 @@ require (
 	github.com/emicklei/dot v1.6.2 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/getsentry/sentry-go v0.31.1 // indirect
-	github.com/go-kit/log v0.2.1 // indirect
-	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/gogo/protobuf v1.3.3 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
@@ -120,6 +117,4 @@ require (
 	modernc.org/token v1.0.1 // indirect
 )
 
-replace (
-	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-)
+replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
