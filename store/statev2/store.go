@@ -16,10 +16,10 @@ import (
 
 const StoreTypeSSStore = 100
 
-var ErrInvalidHeight = errors.Register(RootCodespace, 26, "invalid height")
-var ErrUnknownRequest = errors.Register(RootCodespace, 6, "unknown request")
+//var ErrInvalidHeight = errors.Register(RootCodespace, 26, "invalid height")
+//var ErrUnknownRequest = errors.Register(RootCodespace, 6, "unknown request")
 
-const RootCodespace = "sdk"
+//const RootCodespace = "sdk"
 
 var (
 	_ types.KVStore   = (*Store)(nil)
@@ -99,7 +99,7 @@ func (st *Store) GetWorkingHash() ([]byte, error) {
 
 func (st *Store) Query(req *types.RequestQuery) (res *types.ResponseQuery, err error) {
 	if req.Height > 0 && req.Height > st.version {
-		return QueryResult(ErrInvalidHeight.Wrap("invalid height"), false), nil
+		return QueryResult(fmt.Errorf("invalid height"), false), nil
 	}
 	res.Height = st.version
 	switch req.Path {
@@ -124,7 +124,7 @@ func (st *Store) Query(req *types.RequestQuery) (res *types.ResponseQuery, err e
 		}
 		res.Value = bz
 	default:
-		return QueryResult(ErrUnknownRequest.Wrapf("unexpected query path: %v", req.Path), false), nil
+		return QueryResult(fmt.Errorf("unexpected query path: %v", req.Path), false), nil
 	}
 
 	return res, nil

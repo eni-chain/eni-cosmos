@@ -41,13 +41,13 @@ var (
 	_ types.Queryable        = (*Store)(nil)
 )
 
-var ErrInvalidHeight = errors.Register(RootCodespace, 26, "invalid height")
-var ErrUnknownRequest = errors.Register(RootCodespace, 6, "unknown request")
-var ErrInvalidRequest = errors.Register(RootCodespace, 18, "invalid request")
-var ErrLogic = errors.Register(StoreCodespace, 5, "internal logic error")
-
-const StoreCodespace = "store"
-const RootCodespace = "sdk"
+//var ErrInvalidHeight = errors.Register(RootCodespace, 26, "invalid height")
+//var ErrUnknownRequest = errors.Register(RootCodespace, 6, "unknown request")
+//var ErrInvalidRequest = errors.Register(RootCodespace, 18, "invalid request")
+//var ErrLogic = errors.Register(StoreCodespace, 5, "internal logic error")
+//
+//const StoreCodespace = "store"
+//const RootCodespace = "sdk"
 
 type Store struct {
 	logger         log.Logger
@@ -622,7 +622,7 @@ func (rs *Store) Query(req *types.RequestQuery) (*types.ResponseQuery, error) {
 		res.ProofOps.Ops = append(res.ProofOps.Ops, commitInfo.ProofOp(storeName))
 	}
 	if res.ProofOps == nil || len(res.ProofOps.Ops) == 0 {
-		return nil, ErrInvalidRequest.Wrap("proof is unexpectedly empty; ensure height has not been pruned")
+		return nil, fmt.Errorf("proof is unexpectedly empty; ensure height has not been pruned")
 	}
 	return res, nil
 }
@@ -632,7 +632,7 @@ func (rs *Store) Query(req *types.RequestQuery) (*types.ResponseQuery, error) {
 // Returns error if it doesn't start with /
 func parsePath(path string) (storeName string, subpath string, err error) {
 	if !strings.HasPrefix(path, "/") {
-		return storeName, subpath, errors.Wrapf(ErrUnknownRequest, "invalid path: %s", path)
+		return storeName, subpath, fmt.Errorf("invalid path: %s", path)
 	}
 
 	paths := strings.SplitN(path[1:], "/", 2)
@@ -789,7 +789,7 @@ loop:
 			rs.logger.Info(fmt.Sprintf("Start restoring store: %s", storeKey))
 		case *snapshottypes.SnapshotItem_IAVL:
 			if item.IAVL.Height > math.MaxInt8 {
-				restoreErr = errors.Wrapf(ErrLogic, "node height %v cannot exceed %v",
+				restoreErr = fmt.Errorf("node height %v cannot exceed %v",
 					item.IAVL.Height, math.MaxInt8)
 				break loop
 			}
