@@ -18,7 +18,7 @@ type TxGroup struct {
 	associateTxs  [][]byte
 	otherTxs      [][]byte
 	sequentialTxs [][]byte
-	txGroupDAG    *TxGroupDAG
+	txGroupDAG    *SimpleDag
 }
 
 // TxMeta represents transaction metadata
@@ -50,9 +50,9 @@ func NewTxGroup(txDecoder sdk.TxDecoder, capacity int) *TxGroup {
 		associateTxs:  make([][]byte, 0, capacity),
 		otherTxs:      make([][]byte, 0, capacity),
 		sequentialTxs: make([][]byte, 0, capacity),
-		txGroupDAG: &TxGroupDAG{
+		txGroupDAG: &SimpleDag{
 			txs: make([][]byte, 0, capacity),
-			dag: make([]int, 0),
+			dag: make([]int64, 0),
 		},
 	}
 }
@@ -250,13 +250,19 @@ func (t *TxGroup) buildSampDag() {
 }
 
 func (t *TxGroup) batchAssociateTxs() {
+	if len(t.associateTxs) == 0 {
+		return
+	}
 	t.txGroupDAG.txs = append(t.txGroupDAG.txs, t.associateTxs...)
-	t.txGroupDAG.dag = append(t.txGroupDAG.dag, len(t.associateTxs))
+	t.txGroupDAG.dag = append(t.txGroupDAG.dag, int64(len(t.associateTxs)))
 }
 
 func (t *TxGroup) batchOtherTxs() {
+	if len(t.otherTxs) == 0 {
+		return
+	}
 	t.txGroupDAG.txs = append(t.txGroupDAG.txs, t.otherTxs...)
-	t.txGroupDAG.dag = append(t.txGroupDAG.dag, len(t.otherTxs))
+	t.txGroupDAG.dag = append(t.txGroupDAG.dag, int64(len(t.otherTxs)))
 }
 
 // batchAccountGroup account group by column
@@ -278,7 +284,7 @@ func (t *TxGroup) batchAccountGroup() {
 
 		if len(group) > 0 {
 			t.txGroupDAG.txs = append(t.txGroupDAG.txs, group...)
-			t.txGroupDAG.dag = append(t.txGroupDAG.dag, len(group))
+			t.txGroupDAG.dag = append(t.txGroupDAG.dag, int64(len(group)))
 		}
 	}
 }

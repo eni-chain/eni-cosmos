@@ -274,7 +274,7 @@ func TestProcessAll(t *testing.T) {
 				s := NewScheduler(tt.deliverTxFunc)
 
 				now := time.Now()
-				res, err := s.ProcessAll(ctx, tt.req)
+				res, err := s.ProcessAll(ctx, tt.req, nil, nil)
 				if err != nil {
 					t.Errorf("Expected no error, got %v", err)
 				}

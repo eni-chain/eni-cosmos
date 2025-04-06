@@ -64,7 +64,7 @@ func (dt *deliverTxTask) Reset() {
 
 // Scheduler processes tasks concurrently
 type Scheduler interface {
-	ProcessAll(ctx sdk.Context, reqs sdk.DeliverTxBatchRequest) ([]*abci.ExecTxResult, error)
+	ProcessAll(ctx sdk.Context, reqs sdk.DeliverTxBatchRequest, txs [][]byte, SimpleDag []int64) ([]*abci.ExecTxResult, error)
 }
 
 type scheduler struct {
@@ -137,41 +137,73 @@ func (s *scheduler) tryInitRwSetStore(ctx sdk.Context) {
 	s.rwSetStores = rws
 }
 
-func (s *scheduler) ProcessAll(ctx sdk.Context, req sdk.DeliverTxBatchRequest) ([]*abci.ExecTxResult, error) {
-	if len(req.SeqEntries)+len(req.OtherEntries) == 0 {
+func (s *scheduler) ProcessAll(ctx sdk.Context, req sdk.DeliverTxBatchRequest, txs [][]byte, SimpleDag []int64) ([]*abci.ExecTxResult, error) {
+	if len(txs) == 0 {
 		return []*abci.ExecTxResult{}, nil
 	}
+
+	// get batch txs by simple dag
+	batchTxs := s.getBatchTxs(txs, SimpleDag)
 	startTime := time.Now()
 	s.tryInitRwSetStore(ctx)
-	otherTasks := toTasks(ctx, req.OtherEntries)
-	allSeqTasks := toTasks(ctx, req.SeqEntries)
-	allTasks := append(otherTasks, allSeqTasks...)
 
-	pTasks, sTasks, err := s.preprocessTask(otherTasks)
-	if err != nil {
-		return nil, err
-	}
+	var allResults []*abci.ExecTxResult
+	// group out serial: process each batch sequentially
+	// group in parallel: preprocess tasks, then execute parallel tasks
+	for batchIdx, batch := range batchTxs {
+		if len(batch) == 0 {
+			continue
+		}
 
-	allSeqTasks = append(allSeqTasks, sTasks...)
-	sort.Sort(sortTxTasks(allSeqTasks))
+		txTasks := toTasks(ctx, batch)
+		if err := s.finishParaTasks(txTasks); err != nil {
+			return nil, fmt.Errorf("parallel tasks in batch %d failed: %w", batchIdx, err)
+		}
 
-	if err = s.finishParaTasks(pTasks); err != nil {
-		return nil, fmt.Errorf("parallel otherTasks failed: %w", err)
-	}
-
-	if err = s.finishSerialTasks(allSeqTasks); err != nil {
-		return nil, fmt.Errorf("serial otherTasks failed: %w", err)
+		batchResults := s.collectResponses(txTasks)
+		allResults = append(allResults, batchResults...)
 	}
 
 	for _, mv := range s.rwSetStores {
 		mv.WriteLatestToStore()
 	}
 
-	ctx.Logger().Info("occ scheduler", "height", ctx.BlockHeight(), "txs", len(otherTasks), "latency_ms", time.Since(startTime).Milliseconds(), "sync", s.synchronous)
+	ctx.Logger().Info("occ scheduler", "height", ctx.BlockHeight(), "txs", len(txs), "latency_ms",
+		time.Since(startTime).Milliseconds(), "sync", s.synchronous)
 
-	return s.collectResponses(allTasks), nil
+	return allResults, nil
 }
 
+func (s *scheduler) getBatchTxs(txs [][]byte, SimpleDag []int64) [][]*sdk.DeliverTxEntry {
+	batchTxs := make([][]*sdk.DeliverTxEntry, 0, len(SimpleDag))
+	currentPos := 0
+	for _, batchSize := range SimpleDag {
+		if batchSize <= 0 {
+			continue
+		}
+
+		endPos := currentPos + int(batchSize)
+		if currentPos >= len(txs) {
+			break
+		}
+		if endPos > len(txs) {
+			endPos = len(txs)
+		}
+
+		batch := make([]*sdk.DeliverTxEntry, 0, endPos-currentPos)
+		for i := currentPos; i < endPos; i++ {
+			entry := &sdk.DeliverTxEntry{
+				Tx:      txs[i],
+				TxIndex: i,
+			}
+			batch = append(batch, entry)
+		}
+
+		batchTxs = append(batchTxs, batch)
+		currentPos = endPos
+	}
+	return batchTxs
+}
 func (s *scheduler) collectResponses(tasks []*deliverTxTask) []*abci.ExecTxResult {
 	res := make([]*abci.ExecTxResult, 0, len(tasks))
 	for _, t := range tasks {

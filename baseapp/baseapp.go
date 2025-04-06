@@ -1180,9 +1180,10 @@ func (app *BaseApp) Close() error {
 	return errors.Join(errs...)
 }
 
-func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchRequest) []*abci.ExecTxResult {
+// todo remove req filed and use txs with simple dag directly
+func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchRequest, txs [][]byte, SimpleDag []int64) []*abci.ExecTxResult {
 	scheduler := tasks.NewScheduler(app.deliverTx)
-	txRes, err := scheduler.ProcessAll(ctx, req)
+	txRes, err := scheduler.ProcessAll(ctx, req, txs, SimpleDag)
 	if err != nil {
 		app.logger.Error("error while processing scheduler", "err", err)
 		panic(err)
@@ -1190,24 +1191,25 @@ func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchReques
 	return txRes
 }
 
-func (app *BaseApp) execTx(ctx sdk.Context, req sdk.DeliverTxBatchRequest, txs [][]byte) []*abci.ExecTxResult {
+func (app *BaseApp) execTx(ctx sdk.Context, req sdk.DeliverTxBatchRequest, txs [][]byte, SimpleDag []int64) []*abci.ExecTxResult {
 	if ctx.IsParallelTx() {
 		var txRes []*abci.ExecTxResult
-		if len(req.AssociateTxs) != 0 {
+		if len(req.AssociateTxs) != 0 { // todo remove if block
 			var assTxs [][]byte
 			for _, tx := range req.AssociateTxs {
 				assTxs = append(assTxs, tx.Tx)
 			}
 			txRes = app.serialProcessTxs(ctx, assTxs)
 		}
-		return append(txRes, app.parallelProcessTxs(ctx, req)...)
+		//return append(txRes, app.parallelProcessTxs(ctx, req)...)
+		return append(txRes, app.parallelProcessTxs(ctx, req, txs, SimpleDag)...)
 	}
 
 	return app.serialProcessTxs(ctx, txs)
 }
 
-func (app *BaseApp) parallelProcessTxs(ctx sdk.Context, req sdk.DeliverTxBatchRequest) []*abci.ExecTxResult {
-	return app.deliverTxBatch(ctx, req)
+func (app *BaseApp) parallelProcessTxs(ctx sdk.Context, req sdk.DeliverTxBatchRequest, txs [][]byte, SimpleDag []int64) []*abci.ExecTxResult {
+	return app.deliverTxBatch(ctx, req, txs, SimpleDag)
 }
 
 func (app *BaseApp) serialProcessTxs(ctx sdk.Context, txs [][]byte) []*abci.ExecTxResult {

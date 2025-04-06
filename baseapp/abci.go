@@ -383,12 +383,12 @@ func (app *BaseApp) PrepareProposal(req *abci.RequestPrepareProposal) (resp *abc
 		return nil, errors.New("PrepareProposal handler not set")
 	}
 
-	simpleDag, err := app.buildTxGroupDAG(req.Txs)
+	simpleGroup, err := app.buildGroup(req.Txs)
 	if err != nil {
 		return nil, err
 	}
-	req.Txs = simpleDag.GetTxs()
-	// todo: add dag to block
+	req.Txs = simpleGroup.GetTxs()
+	req.SimpleDag = simpleGroup.GetDag()
 	//log spend time
 	start := time.Now()
 	app.logger.Debug("Time PrepareProposal", "block height", req.Height, "start time", start)
@@ -441,15 +441,19 @@ func (app *BaseApp) PrepareProposal(req *abci.RequestPrepareProposal) (resp *abc
 				"panic", err,
 			)
 
-			resp = &abci.ResponsePrepareProposal{Txs: req.Txs}
+			resp = &abci.ResponsePrepareProposal{Txs: req.Txs, SimpleDag: simpleGroup.dag}
 		}
 	}()
 
 	resp, err = app.prepareProposal(app.prepareProposalState.Context(), req)
 	if err != nil {
 		app.logger.Error("failed to prepare proposal", "height", req.Height, "time", req.Time, "err", err)
-		return &abci.ResponsePrepareProposal{Txs: req.Txs}, nil
+		return &abci.ResponsePrepareProposal{Txs: req.Txs, SimpleDag: simpleGroup.dag}, nil
 	}
+
+	// use the build simple dag to replace the req.Txs
+	resp.Txs = req.Txs
+	resp.SimpleDag = simpleGroup.dag
 
 	return resp, nil
 }
@@ -825,7 +829,8 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	// vote extensions, so skip those.
 	startExecTx := time.Now()
 	app.logger.Info("Time ExecTxs", "block height", req.Height, "start exec tx", startExecTx)
-	txResults := app.execTx(app.finalizeBlockState.Context(), batchTxReq, req.Txs)
+	// todo  remove batch tx req and use req txs directly with simple dag
+	txResults := app.execTx(app.finalizeBlockState.Context(), batchTxReq, req.Txs, req.SimpleDag)
 	endExecTx := time.Now()
 	spendTime := endExecTx.Sub(startExecTx).Milliseconds()
 	if spendTime > 0 {
