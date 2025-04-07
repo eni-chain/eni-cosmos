@@ -387,7 +387,7 @@ func (app *BaseApp) PrepareProposal(req *abci.RequestPrepareProposal) (resp *abc
 	if err != nil {
 		return nil, err
 	}
-	req.Txs = simpleGroup.GetTxs()
+	req.Txs = simpleGroup.txs
 	req.SimpleDag = simpleGroup.GetDag()
 	//log spend time
 	start := time.Now()

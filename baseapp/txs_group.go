@@ -14,7 +14,7 @@ import (
 type TxGroup struct {
 	evmTxMetas    []*TxMeta
 	txDecoder     sdk.TxDecoder
-	groups        map[string][]*TxMeta
+	groups        map[string][]*TxMeta // todo map can be replaced with a slice of slices
 	associateTxs  [][]byte
 	otherTxs      [][]byte
 	sequentialTxs [][]byte
