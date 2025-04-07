@@ -2,33 +2,16 @@ package multiversion
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"sort"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
-	"cosmossdk.io/store/types"
 	dbm "github.com/cometbft/cometbft-db"
+	"github.com/cosmos/cosmos-sdk/store/types"
+	scheduler "github.com/cosmos/cosmos-sdk/types/occ"
 )
-
-var (
-	ErrReadEstimate = errors.New("multiversion store value contains estimate, cannot read, aborting")
-)
-
-// Abort contains the information for a transaction's conflict
-type Abort struct {
-	DependentTxIdx int
-	Err            error
-}
-
-func NewEstimateAbort(dependentTxIdx int) Abort {
-	return Abort{
-		DependentTxIdx: dependentTxIdx,
-		Err:            ErrReadEstimate,
-	}
-}
 
 // exposes a handler for adding items to readset, useful for iterators
 type ReadsetHandler interface {
@@ -109,24 +92,14 @@ type VersionIndexedStore struct {
 	transactionIndex int
 	incarnation      int
 	// have abort channel here for aborting transactions
-	abortChannel chan Abort
-}
-
-func (store *VersionIndexedStore) CacheWrap() types.CacheWrap {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (store *VersionIndexedStore) CacheWrapWithTrace(w io.Writer, tc types.TraceContext) types.CacheWrap {
-	//TODO implement me
-	panic("implement me")
+	abortChannel chan scheduler.Abort
 }
 
 var _ types.KVStore = (*VersionIndexedStore)(nil)
 var _ ReadsetHandler = (*VersionIndexedStore)(nil)
 var _ IterateSetHandler = (*VersionIndexedStore)(nil)
 
-func NewVersionIndexedStore(parent types.KVStore, multiVersionStore MultiVersionStore, transactionIndex, incarnation int, abortChannel chan Abort) *VersionIndexedStore {
+func NewVersionIndexedStore(parent types.KVStore, multiVersionStore MultiVersionStore, transactionIndex, incarnation int, abortChannel chan scheduler.Abort) *VersionIndexedStore {
 	return &VersionIndexedStore{
 		readset:           make(map[string][][]byte),
 		writeset:          make(map[string][]byte),
@@ -151,7 +124,7 @@ func (store *VersionIndexedStore) GetWriteset() map[string][]byte {
 }
 
 // WriteAbort writes an abort to the store but only allows one abort to be written PER instance of mvkv. This is because we pair abort channel writes with panics, and if we hit this more than once, it means that the panic was swallowed, so we won't write any aborts after a first abort is written to prevent any potential for deadlocking due to full channels
-func (store *VersionIndexedStore) WriteAbort(abort Abort) {
+func (store *VersionIndexedStore) WriteAbort(abort scheduler.Abort) {
 	select {
 	case store.abortChannel <- abort:
 	default:
@@ -188,7 +161,7 @@ func (store *VersionIndexedStore) Get(key []byte) []byte {
 	mvsValue := store.multiVersionStore.GetLatestBeforeIndex(store.transactionIndex, key)
 	if mvsValue != nil {
 		if mvsValue.IsEstimate() {
-			abort := NewEstimateAbort(mvsValue.Index())
+			abort := scheduler.NewEstimateAbort(mvsValue.Index())
 			store.WriteAbort(abort)
 			panic(abort)
 		} else {
@@ -239,7 +212,7 @@ func (store *VersionIndexedStore) ValidateReadset() bool {
 		if mvsValue != nil {
 			if mvsValue.IsEstimate() {
 				// if we see an estimate, that means that we need to abort and rerun
-				store.WriteAbort(NewEstimateAbort(mvsValue.Index()))
+				store.WriteAbort(scheduler.NewEstimateAbort(mvsValue.Index()))
 				return false
 			} else {
 				if mvsValue.IsDeleted() {
@@ -296,17 +269,17 @@ func (store *VersionIndexedStore) Set(key []byte, value []byte) {
 }
 
 // Iterator implements types.KVStore.
-func (v *VersionIndexedStore) Iterator(start []byte, end []byte) types.Iterator {
+func (v *VersionIndexedStore) Iterator(start []byte, end []byte) dbm.Iterator {
 	return v.iterator(start, end, true)
 }
 
 // ReverseIterator implements types.KVStore.
-func (v *VersionIndexedStore) ReverseIterator(start []byte, end []byte) types.Iterator {
+func (v *VersionIndexedStore) ReverseIterator(start []byte, end []byte) dbm.Iterator {
 	return v.iterator(start, end, false)
 }
 
 // Iterator implements types.KVStore.
-func (store *VersionIndexedStore) iterator(start []byte, end []byte, ascending bool) types.Iterator {
+func (store *VersionIndexedStore) iterator(start []byte, end []byte, ascending bool) dbm.Iterator {
 	// TODO: remove?
 	// store.mtx.Lock()
 	// defer store.mtx.Unlock()
@@ -373,20 +346,20 @@ func (v *VersionIndexedStore) GetStoreType() types.StoreType {
 	return v.parent.GetStoreType()
 }
 
-//// CacheWrap implements types.KVStore.
-//func (*VersionIndexedStore) CacheWrap(storeKey types.StoreKey) types.CacheWrap {
-//	panic("CacheWrap not supported for version indexed store")
-//}
-//
-//// CacheWrapWithListeners implements types.KVStore.
-//func (*VersionIndexedStore) CacheWrapWithListeners(storeKey types.StoreKey, listeners []types.WriteListener) types.CacheWrap {
-//	panic("CacheWrapWithListeners not supported for version indexed store")
-//}
-//
-//// CacheWrapWithTrace implements types.KVStore.
-//func (*VersionIndexedStore) CacheWrapWithTrace(storeKey types.StoreKey, w io.Writer, tc types.TraceContext) types.CacheWrap {
-//	panic("CacheWrapWithTrace not supported for version indexed store")
-//}
+// CacheWrap implements types.KVStore.
+func (*VersionIndexedStore) CacheWrap(storeKey types.StoreKey) types.CacheWrap {
+	panic("CacheWrap not supported for version indexed store")
+}
+
+// CacheWrapWithListeners implements types.KVStore.
+func (*VersionIndexedStore) CacheWrapWithListeners(storeKey types.StoreKey, listeners []types.WriteListener) types.CacheWrap {
+	panic("CacheWrapWithListeners not supported for version indexed store")
+}
+
+// CacheWrapWithTrace implements types.KVStore.
+func (*VersionIndexedStore) CacheWrapWithTrace(storeKey types.StoreKey, w io.Writer, tc types.TraceContext) types.CacheWrap {
+	panic("CacheWrapWithTrace not supported for version indexed store")
+}
 
 // GetWorkingHash implements types.KVStore.
 func (v *VersionIndexedStore) GetWorkingHash() ([]byte, error) {
