@@ -2,6 +2,7 @@ package multiversion
 
 import (
 	"bytes"
+	"cosmossdk.io/store/types"
 	"fmt"
 	"io"
 	"sort"
@@ -9,8 +10,8 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 
 	dbm "github.com/cometbft/cometbft-db"
-	"github.com/cosmos/cosmos-sdk/store/types"
-	scheduler "github.com/cosmos/cosmos-sdk/types/occ"
+
+	scheduler "cosmossdk.io/store/multiversion/occ"
 )
 
 // exposes a handler for adding items to readset, useful for iterators
@@ -269,17 +270,17 @@ func (store *VersionIndexedStore) Set(key []byte, value []byte) {
 }
 
 // Iterator implements types.KVStore.
-func (v *VersionIndexedStore) Iterator(start []byte, end []byte) dbm.Iterator {
+func (v *VersionIndexedStore) Iterator(start []byte, end []byte) types.Iterator {
 	return v.iterator(start, end, true)
 }
 
 // ReverseIterator implements types.KVStore.
-func (v *VersionIndexedStore) ReverseIterator(start []byte, end []byte) dbm.Iterator {
+func (v *VersionIndexedStore) ReverseIterator(start []byte, end []byte) types.Iterator {
 	return v.iterator(start, end, false)
 }
 
 // Iterator implements types.KVStore.
-func (store *VersionIndexedStore) iterator(start []byte, end []byte, ascending bool) dbm.Iterator {
+func (store *VersionIndexedStore) iterator(start []byte, end []byte, ascending bool) types.Iterator {
 	// TODO: remove?
 	// store.mtx.Lock()
 	// defer store.mtx.Unlock()
@@ -322,7 +323,8 @@ func (store *VersionIndexedStore) iterator(start []byte, end []byte, ascending b
 }
 
 func (v *VersionIndexedStore) VersionExists(version int64) bool {
-	return v.parent.VersionExists(version)
+	//return v.parent.VersionExists(version)
+	return true
 }
 
 func (v *VersionIndexedStore) DeleteAll(start, end []byte) error {
@@ -347,17 +349,17 @@ func (v *VersionIndexedStore) GetStoreType() types.StoreType {
 }
 
 // CacheWrap implements types.KVStore.
-func (*VersionIndexedStore) CacheWrap(storeKey types.StoreKey) types.CacheWrap {
+func (*VersionIndexedStore) CacheWrap() types.CacheWrap {
 	panic("CacheWrap not supported for version indexed store")
 }
 
 // CacheWrapWithListeners implements types.KVStore.
-func (*VersionIndexedStore) CacheWrapWithListeners(storeKey types.StoreKey, listeners []types.WriteListener) types.CacheWrap {
+func (*VersionIndexedStore) CacheWrapWithListeners() types.CacheWrap {
 	panic("CacheWrapWithListeners not supported for version indexed store")
 }
 
 // CacheWrapWithTrace implements types.KVStore.
-func (*VersionIndexedStore) CacheWrapWithTrace(storeKey types.StoreKey, w io.Writer, tc types.TraceContext) types.CacheWrap {
+func (*VersionIndexedStore) CacheWrapWithTrace(w io.Writer, tc types.TraceContext) types.CacheWrap {
 	panic("CacheWrapWithTrace not supported for version indexed store")
 }
 

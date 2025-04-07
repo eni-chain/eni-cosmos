@@ -1,9 +1,9 @@
 package multiversion
 
 import (
+	"cosmossdk.io/store/types"
 	"sync"
 
-	"github.com/cosmos/cosmos-sdk/store/types"
 	"github.com/google/btree"
 )
 

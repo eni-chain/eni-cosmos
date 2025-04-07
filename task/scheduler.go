@@ -2,20 +2,17 @@ package tasks
 
 import (
 	"context"
-	"crypto/sha256"
-	"fmt"
 	//"cosmossdk.io/api/tendermint/abci"
 	abci "github.com/cometbft/cometbft/abci/types"
 	"sort"
 	"sync"
 	"time"
 
-	"github.com/cometbft/cometbft/abci/types"
+	"cosmossdk.io/store/multiversion/occ"
 	"github.com/cosmos/cosmos-sdk/store/multiversion"
 	store "github.com/cosmos/cosmos-sdk/store/types"
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/occ"
 	"github.com/cosmos/cosmos-sdk/utils/tracing"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -46,12 +43,12 @@ type deliverTxTask struct {
 	Ctx     sdk.Context
 	AbortCh chan occ.Abort
 
-	mx            sync.RWMutex
-	Status        status
-	Dependencies  map[int]struct{}
-	Abort         *occ.Abort
-	Incarnation   int
-	Request       types.RequestDeliverTx
+	mx           sync.RWMutex
+	Status       status
+	Dependencies map[int]struct{}
+	Abort        *occ.Abort
+	Incarnation  int
+	//Request       types.RequestDeliverTx
 	SdkTx         sdk.Tx
 	Checksum      [32]byte
 	AbsoluteIndex int
@@ -103,7 +100,7 @@ type Scheduler interface {
 }
 
 type scheduler struct {
-	deliverTx          func(ctx sdk.Context, req types.RequestDeliverTx, tx sdk.Tx, checksum [32]byte) (res types.ResponseDeliverTx)
+	deliverTx          func(ctx sdk.Context, tx []byte) *abci.ExecTxResult
 	workers            int
 	multiVersionStores map[sdk.StoreKey]multiversion.MultiVersionStore
 	tracingInfo        *tracing.Info
@@ -117,7 +114,7 @@ type scheduler struct {
 }
 
 // NewScheduler creates a new scheduler
-func NewScheduler(workers int, tracingInfo *tracing.Info, deliverTxFunc func(ctx sdk.Context, req types.RequestDeliverTx, tx sdk.Tx, checksum [32]byte) (res types.ResponseDeliverTx)) Scheduler {
+func NewScheduler(workers int, tracingInfo *tracing.Info, deliverTxFunc func(ctx sdk.Context, tx []byte) *abci.ExecTxResult) Scheduler {
 	return &scheduler{
 		workers:     workers,
 		deliverTx:   deliverTxFunc,
@@ -189,7 +186,7 @@ func toTasks(reqs []*sdk.DeliverTxEntry) ([]*deliverTxTask, map[int]*deliverTxTa
 	allTasks := make([]*deliverTxTask, 0, len(reqs))
 	for _, r := range reqs {
 		task := &deliverTxTask{
-			Request:       r.Request,
+			//Request:       r.Request,
 			SdkTx:         r.SdkTx,
 			Checksum:      r.Checksum,
 			AbsoluteIndex: r.AbsoluteIndex,
@@ -485,7 +482,7 @@ func (s *scheduler) prepareAndRunTask(wg *sync.WaitGroup, ctx sdk.Context, task 
 func (s *scheduler) traceSpan(ctx sdk.Context, name string, task *deliverTxTask) (sdk.Context, trace.Span) {
 	spanCtx, span := s.tracingInfo.StartWithContext(name, ctx.TraceSpanContext())
 	if task != nil {
-		span.SetAttributes(attribute.String("txHash", fmt.Sprintf("%X", sha256.Sum256(task.Request.Tx))))
+		//span.SetAttributes(attribute.String("txHash", fmt.Sprintf("%X", sha256.Sum256(task.Request.Tx))))
 		span.SetAttributes(attribute.Int("absoluteIndex", task.AbsoluteIndex))
 		span.SetAttributes(attribute.Int("txIncarnation", task.Incarnation))
 	}
@@ -554,7 +551,7 @@ func (s *scheduler) executeTask(task *deliverTxTask) {
 
 	s.prepareTask(task)
 
-	resp := s.deliverTx(task.Ctx, task.Request, task.SdkTx, task.Checksum)
+	resp := s.deliverTx(task.Ctx, task.SdkTx)
 	// close the abort channel
 	close(task.AbortCh)
 	abort, ok := <-task.AbortCh
@@ -571,7 +568,7 @@ func (s *scheduler) executeTask(task *deliverTxTask) {
 	}
 
 	task.SetStatus(statusExecuted)
-	task.Response = &resp
+	task.Response = resp
 
 	// write from version store to multiversion stores
 	for _, v := range task.VersionStores {
