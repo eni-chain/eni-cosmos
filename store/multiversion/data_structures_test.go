@@ -3,7 +3,7 @@ package multiversion_test
 import (
 	"testing"
 
-	mv "github.com/cosmos/cosmos-sdk/store/multiversion"
+	mv "cosmossdk.io/store/multiversion"
 	"github.com/stretchr/testify/require"
 )
 

@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"cosmossdk.io/store/multiversion"
 	"cosmossdk.io/store/multiversion/occ"
-	"github.com/cosmos/cosmos-sdk/store/multiversion"
-	store "github.com/cosmos/cosmos-sdk/store/types"
+	store "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/utils/tracing"

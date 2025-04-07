@@ -1192,7 +1192,7 @@ func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchReques
 	//scheduler := tasks.NewScheduler(app.deliverTx)
 	scheduler := tasks.NewScheduler(app.concurrencyWorkers, app.TracingInfo, app.deliverTx)
 	//txRes, err := scheduler.ProcessAll(ctx, req, txs, SimpleDag)
-	txRes, err := scheduler.ProcessAll(ctx, req)
+	txRes, err := scheduler.ProcessAll(ctx, req.TxEntries)
 	if err != nil {
 		app.logger.Error("error while processing scheduler", "err", err)
 		panic(err)

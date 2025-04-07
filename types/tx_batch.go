@@ -1,8 +1,8 @@
 package types
 
 import (
+	"cosmossdk.io/store/multiversion"
 	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/cosmos/cosmos-sdk/store/multiversion"
 )
 
 // DeliverTxEntry represents an individual transaction's request within a batch.

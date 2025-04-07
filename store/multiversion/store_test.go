@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/cosmos/cosmos-sdk/store/dbadapter"
-	"github.com/cosmos/cosmos-sdk/store/multiversion"
+	"cosmossdk.io/store/dbadapter"
+	"cosmossdk.io/store/multiversion"
 	"github.com/cosmos/cosmos-sdk/types/occ"
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"

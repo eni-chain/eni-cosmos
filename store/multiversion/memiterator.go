@@ -3,7 +3,7 @@ package multiversion
 import (
 	dbm "github.com/cometbft/cometbft-db"
 
-	"github.com/cosmos/cosmos-sdk/store/types"
+	"cosmossdk.io/store/types"
 	occtypes "github.com/cosmos/cosmos-sdk/types/occ"
 )
 
