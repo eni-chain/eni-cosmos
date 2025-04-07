@@ -20,7 +20,7 @@ func (app *BaseApp) buildGroup(txs [][]byte) (*SimpleDag, error) {
 	}
 
 	txGroup, err := app.GroupByTxs(txs)
-	if err == nil {
+	if err != nil {
 		return &SimpleDag{}, err
 	}
 

@@ -383,10 +383,12 @@ func (app *BaseApp) PrepareProposal(req *abci.RequestPrepareProposal) (resp *abc
 		return nil, errors.New("PrepareProposal handler not set")
 	}
 
+	buildGroupStart := time.Now()
 	simpleGroup, err := app.buildGroup(req.Txs)
 	if err != nil {
 		return nil, err
 	}
+	app.logger.Info("build simple group", "spend time", time.Since(buildGroupStart).Milliseconds(), "txs", len(simpleGroup.txs))
 	req.Txs = simpleGroup.txs
 	req.SimpleDag = simpleGroup.GetDag()
 	//log spend time
