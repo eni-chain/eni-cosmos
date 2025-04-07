@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	tasks "github.com/cosmos/cosmos-sdk/task"
+	"github.com/cosmos/cosmos-sdk/utils/tracing"
 	"math"
 	"sort"
 	"strconv"
@@ -198,6 +199,12 @@ type BaseApp struct {
 
 	// enableParallelTxExecution will enable parallel transaction execution if true.
 	enableParallelTxExecution bool
+
+	TracingInfo    *tracing.Info
+	TracingEnabled bool
+
+	concurrencyWorkers int
+	occEnabled         bool
 }
 
 // NewBaseApp returns a reference to an initialized BaseApp. It accepts a
@@ -1182,8 +1189,10 @@ func (app *BaseApp) Close() error {
 
 // todo remove req filed and use txs with simple dag directly
 func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchRequest, txs [][]byte, SimpleDag []int64) []*abci.ExecTxResult {
-	scheduler := tasks.NewScheduler(app.deliverTx)
-	txRes, err := scheduler.ProcessAll(ctx, req, txs, SimpleDag)
+	//scheduler := tasks.NewScheduler(app.deliverTx)
+	scheduler := tasks.NewScheduler(app.concurrencyWorkers, app.TracingInfo, app.deliverTx)
+	//txRes, err := scheduler.ProcessAll(ctx, req, txs, SimpleDag)
+	txRes, err := scheduler.ProcessAll(ctx, req)
 	if err != nil {
 		app.logger.Error("error while processing scheduler", "err", err)
 		panic(err)
@@ -1194,13 +1203,13 @@ func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchReques
 func (app *BaseApp) execTx(ctx sdk.Context, req sdk.DeliverTxBatchRequest, txs [][]byte, SimpleDag []int64) []*abci.ExecTxResult {
 	if ctx.IsParallelTx() {
 		var txRes []*abci.ExecTxResult
-		if len(req.AssociateTxs) != 0 { // todo remove if block
-			var assTxs [][]byte
-			for _, tx := range req.AssociateTxs {
-				assTxs = append(assTxs, tx.Tx)
-			}
-			txRes = app.serialProcessTxs(ctx, assTxs)
-		}
+		//if len(req.AssociateTxs) != 0 { // todo remove if block
+		//	var assTxs [][]byte
+		//	for _, tx := range req.AssociateTxs {
+		//		assTxs = append(assTxs, tx.Tx)
+		//	}
+		//	txRes = app.serialProcessTxs(ctx, assTxs)
+		//}
 		//return append(txRes, app.parallelProcessTxs(ctx, req)...)
 		return append(txRes, app.parallelProcessTxs(ctx, req, txs, SimpleDag)...)
 	}

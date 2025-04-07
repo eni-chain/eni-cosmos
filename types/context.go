@@ -83,6 +83,7 @@ type Context struct {
 	evmEntryViaWasmdPrecompile          bool   // EVM is entered via wasmd precompile directly
 	evmPrecompileCalledFromDelegateCall bool   // EVM precompile is called from a delegate call
 
+	traceSpanContext context.Context
 }
 
 // Proposed rename, not done to avoid API breakage
@@ -118,7 +119,6 @@ func (c Context) PendingTxChecker() abci.PendingTxChecker       { return c.pendi
 func (c Context) CheckTxCallback() func(Context, error)         { return c.checkTxCallback }
 func (c Context) ExpireTxHandler() func()                       { return c.expireTxHandler }
 func (c Context) IsParallelTx() bool                            { return c.isParallelExec }
-
 
 // Getters
 func (c Context) IsEVM() bool {
@@ -198,6 +198,10 @@ func (c Context) BlockHeader() cmtproto.Header {
 	msg := proto.Clone(&h).(*cmtproto.Header)
 	msg.Time = t //set time back
 	return *msg
+}
+
+func (c Context) TraceSpanContext() context.Context {
+	return c.traceSpanContext
 }
 
 // HeaderHash returns a copy of the header hash obtained during abci.RequestBeginBlock
@@ -442,6 +446,11 @@ func (c Context) WithCheckTxCallback(checkTxCallback func(Context, error)) Conte
 }
 func (c Context) WithExpireTxHandler(expireTxHandler func()) Context {
 	c.expireTxHandler = expireTxHandler
+	return c
+}
+
+func (c Context) WithTraceSpanContext(ctx context.Context) Context {
+	c.traceSpanContext = ctx
 	return c
 }
 
