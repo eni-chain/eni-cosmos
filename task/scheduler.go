@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	//"cosmossdk.io/api/tendermint/abci"
 	abci "github.com/cometbft/cometbft/abci/types"
 	"sort"
 	"sync"
@@ -313,6 +312,7 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]*
 	start(workerCtx, s.validateCh, len(tasks))
 
 	toExecute := tasks
+	execStart := time.Now()
 	for !allValidated(tasks) {
 		// if the max incarnation >= x, we should revert to synchronous
 		if iterations >= maximumIterations {
@@ -345,11 +345,14 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]*
 		s.metrics.retries += len(toExecute)
 		iterations++
 	}
+	s.loger.Info("execute all and validate all", "spend time ", time.Since(execStart).Milliseconds(), "iterations count", iterations)
 
+	writeStoreStart := time.Now()
 	for _, mv := range s.multiVersionStores {
 		mv.WriteLatestToStore()
 	}
 	s.metrics.maxIncarnation = s.maxIncarnation
+	s.loger.Info("write latest to store", "spend time ", time.Since(writeStoreStart).Milliseconds(), "write len", len(s.multiVersionStores))
 
 	ctx.Logger().Info("occ scheduler", "height", ctx.BlockHeight(), "txs", len(tasks), "latency_ms", time.Since(startTime).Milliseconds(), "retries", s.metrics.retries, "maxIncarnation", s.maxIncarnation, "iterations", iterations, "sync", s.synchronous, "workers", s.workers)
 
