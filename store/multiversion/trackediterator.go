@@ -11,21 +11,6 @@ type trackedIterator struct {
 	iterateset *iterationTracker
 }
 
-func (ti *trackedIterator) Domain() (start []byte, end []byte) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (ti *trackedIterator) Error() error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (ti *trackedIterator) Close() error {
-	//TODO implement me
-	panic("implement me")
-}
-
 func NewTrackedIterator(iter types.Iterator, iterationTracker *iterationTracker) *trackedIterator {
 	return &trackedIterator{
 		Iterator:   iter,
