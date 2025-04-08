@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
+	"cosmossdk.io/log"
 	"cosmossdk.io/store/multiversion"
 	"cosmossdk.io/store/multiversion/occ"
 	store "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/utils/tracing"
 )
 
 type status string
@@ -110,15 +110,17 @@ type scheduler struct {
 	metrics        *schedulerMetrics
 	synchronous    bool // true if maxIncarnation exceeds threshold
 	maxIncarnation int  // current highest incarnation
+	loger          log.Logger
 }
 
 // NewScheduler creates a new scheduler
-func NewScheduler(workers int, tracingInfo *tracing.Info, deliverTxFunc func(ctx sdk.Context, tx []byte) *abci.ExecTxResult) Scheduler {
+func NewScheduler(workers int, deliverTxFunc func(ctx sdk.Context, tx []byte) *abci.ExecTxResult, loger log.Logger) Scheduler {
 	return &scheduler{
 		workers:   workers,
 		deliverTx: deliverTxFunc,
 		//tracingInfo: tracingInfo,
 		metrics: &schedulerMetrics{},
+		loger:   loger,
 	}
 }
 
@@ -323,11 +325,14 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]*
 			toExecute = tasks[startIdx:]
 		}
 
+		//execStart := time.Now()
 		// execute sets statuses of tasks to either executed or aborted
 		if err := s.executeAll(ctx, toExecute); err != nil {
 			return nil, err
 		}
+		//s.loger.Info("execute all", "spend time ", time.Since(execStart).Milliseconds(), "exec txs len", len(toExecute), "iterations count", iterations)
 
+		//validateStart := time.Now()
 		// validate returns any that should be re-executed
 		// note this processes ALL tasks, not just those recently executed
 		var err error
@@ -335,6 +340,7 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]*
 		if err != nil {
 			return nil, err
 		}
+		//s.loger.Info("validate all", "spend time ", time.Since(validateStart).Milliseconds(), "validate txs len", len(toExecute), "iterations count", iterations)
 		// these are retries which apply to metrics
 		s.metrics.retries += len(toExecute)
 		iterations++

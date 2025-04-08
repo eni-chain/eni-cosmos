@@ -31,9 +31,11 @@ import (
 	"golang.org/x/exp/maps"
 	protov2 "google.golang.org/protobuf/proto"
 	"math"
+	"runtime"
 	"sort"
 	"strconv"
 	"sync"
+	"time"
 )
 
 type (
@@ -1207,9 +1209,10 @@ func (app *BaseApp) Close() error {
 }
 
 func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchRequest) []*abci.ExecTxResult {
-	//scheduler := tasks.NewScheduler(app.deliverTx)
-	scheduler := tasks.NewScheduler(app.concurrencyWorkers, app.TracingInfo, app.deliverTx)
-	//txRes, err := scheduler.ProcessAll(ctx, req, txs, SimpleDag)
+	if app.concurrencyWorkers == 0 {
+		app.concurrencyWorkers = runtime.NumCPU()
+	}
+	scheduler := tasks.NewScheduler(app.concurrencyWorkers, app.deliverTx, app.logger)
 	txRes, err := scheduler.ProcessAll(ctx, req.TxEntries)
 	if err != nil {
 		app.logger.Error("error while processing scheduler", "err", err)
@@ -1243,6 +1246,8 @@ func (app *BaseApp) parallelProcessTxs(ctx sdk.Context, txs [][]byte, SimpleDag 
 		_, span = app.TracingInfo.Start("GenerateEstimatedWritesets")
 	}
 	wg := sync.WaitGroup{}
+
+	buildEntryStart := time.Now()
 	for txIndex, tx := range txs {
 		wg.Add(1)
 		go func(txIndex int, tx []byte) {
@@ -1257,7 +1262,7 @@ func (app *BaseApp) parallelProcessTxs(ctx sdk.Context, txs [][]byte, SimpleDag 
 	}
 
 	wg.Wait()
-
+	app.logger.Info("build entry", "spend time ", time.Since(buildEntryStart).Milliseconds(), "txs count ", len(txs))
 	if app.TracingEnabled {
 		span.End()
 	}
