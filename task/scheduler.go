@@ -475,7 +475,7 @@ func (s *scheduler) prepareAndRunTask(wg *sync.WaitGroup, ctx sdk.Context, task 
 	//defer eSpan.End()
 
 	//task.Ctx = eCtx
-	s.executeTask(task)
+	s.executeTask(task, ctx)
 	wg.Done()
 }
 
@@ -528,10 +528,10 @@ func (s *scheduler) prepareTask(task *deliverTxTask) {
 	task.Ctx = ctx
 }
 
-func (s *scheduler) executeTask(task *deliverTxTask) {
+func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 	//dCtx, dSpan := s.traceSpan(task.Ctx, "SchedulerExecuteTask", task)
 	//defer dSpan.End()
-	//task.Ctx = dCtx
+	task.Ctx = ctx
 
 	// in the synchronous case, we only want to re-execute tasks that need re-executing
 	if s.synchronous {
