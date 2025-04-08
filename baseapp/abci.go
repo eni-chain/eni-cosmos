@@ -720,8 +720,8 @@ func (app *BaseApp) VerifyVoteExtension(req *abci.RequestVerifyVoteExtension) (r
 // must be used.
 func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.RequestFinalizeBlock) (*abci.ResponseFinalizeBlock, error) {
 	var (
-		events     []abci.Event
-		batchTxReq sdk.DeliverTxBatchRequest
+		events []abci.Event
+		//batchTxReq sdk.DeliverTxBatchRequest
 	)
 
 	if err := app.checkHalt(req.Height, req.Time); err != nil {
@@ -832,7 +832,7 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	startExecTx := time.Now()
 	app.logger.Info("Time ExecTxs", "block height", req.Height, "start exec tx", startExecTx)
 	// todo  remove batch tx req and use req txs directly with simple dag
-	txResults := app.execTx(app.finalizeBlockState.Context(), batchTxReq, req.Txs, req.SimpleDag)
+	txResults := app.execTx(app.finalizeBlockState.Context(), req.Txs, req.SimpleDag)
 	endExecTx := time.Now()
 	spendTime := endExecTx.Sub(startExecTx).Milliseconds()
 	if spendTime > 0 {

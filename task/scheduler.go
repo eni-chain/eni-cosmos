@@ -48,9 +48,10 @@ type deliverTxTask struct {
 	Dependencies map[int]struct{}
 	Abort        *occ.Abort
 	Incarnation  int
-	//Request       types.RequestDeliverTx
+	//Request       abci.RequestDeliverTx
 	SdkTx         sdk.Tx
 	Checksum      [32]byte
+	Tx            []byte
 	AbsoluteIndex int
 	Response      *abci.ExecTxResult
 	VersionStores map[sdk.StoreKey]*multiversion.VersionIndexedStore
@@ -187,6 +188,7 @@ func toTasks(reqs []*sdk.DeliverTxEntry) ([]*deliverTxTask, map[int]*deliverTxTa
 	for _, r := range reqs {
 		task := &deliverTxTask{
 			//Request:       r.Request,
+			Tx:            r.Tx,
 			SdkTx:         r.SdkTx,
 			Checksum:      r.Checksum,
 			AbsoluteIndex: r.AbsoluteIndex,
@@ -551,7 +553,7 @@ func (s *scheduler) executeTask(task *deliverTxTask) {
 
 	s.prepareTask(task)
 
-	resp := s.deliverTx(task.Ctx, task.SdkTx)
+	resp := s.deliverTx(task.Ctx, task.Tx)
 	// close the abort channel
 	close(task.AbortCh)
 	abort, ok := <-task.AbortCh

@@ -8,12 +8,15 @@ import (
 // DeliverTxEntry represents an individual transaction's request within a batch.
 // This can be extended to include tx-level metadata
 type DeliverTxEntry struct {
-	Request            abci.RequestDeliverTx
+	//Request            abci.RequestDeliverTx
 	SdkTx              Tx
 	Checksum           [32]byte
 	AbsoluteIndex      int
 	EstimatedWritesets MappedWritesets
 	TxTracer           TxTracer
+	SimpleDag          []int64
+	Tx                 []byte
+	TxIndex            int
 }
 
 // EstimatedWritesets represents an estimated writeset for a transaction mapped by storekey to the writeset estimate.

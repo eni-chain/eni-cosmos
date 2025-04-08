@@ -2,12 +2,14 @@ package baseapp
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	tasks "github.com/cosmos/cosmos-sdk/task"
 	"github.com/cosmos/cosmos-sdk/utils/tracing"
 	"math"
 	"sort"
 	"strconv"
+	"sync"
 
 	"github.com/cockroachdb/errors"
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -25,7 +27,6 @@ import (
 	storemetrics "cosmossdk.io/store/metrics"
 	"cosmossdk.io/store/snapshots"
 	storetypes "cosmossdk.io/store/types"
-
 	"github.com/cosmos/cosmos-sdk/baseapp/oe"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -34,6 +35,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/mempool"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type (
@@ -1187,8 +1189,7 @@ func (app *BaseApp) Close() error {
 	return errors.Join(errs...)
 }
 
-// todo remove req filed and use txs with simple dag directly
-func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchRequest, txs [][]byte, SimpleDag []int64) []*abci.ExecTxResult {
+func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchRequest) []*abci.ExecTxResult {
 	//scheduler := tasks.NewScheduler(app.deliverTx)
 	scheduler := tasks.NewScheduler(app.concurrencyWorkers, app.TracingInfo, app.deliverTx)
 	//txRes, err := scheduler.ProcessAll(ctx, req, txs, SimpleDag)
@@ -1200,7 +1201,7 @@ func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchReques
 	return txRes
 }
 
-func (app *BaseApp) execTx(ctx sdk.Context, req sdk.DeliverTxBatchRequest, txs [][]byte, SimpleDag []int64) []*abci.ExecTxResult {
+func (app *BaseApp) execTx(ctx sdk.Context, txs [][]byte, SimpleDag []int64) []*abci.ExecTxResult {
 	if ctx.IsParallelTx() {
 		var txRes []*abci.ExecTxResult
 		//if len(req.AssociateTxs) != 0 { // todo remove if block
@@ -1211,14 +1212,65 @@ func (app *BaseApp) execTx(ctx sdk.Context, req sdk.DeliverTxBatchRequest, txs [
 		//	txRes = app.serialProcessTxs(ctx, assTxs)
 		//}
 		//return append(txRes, app.parallelProcessTxs(ctx, req)...)
-		return append(txRes, app.parallelProcessTxs(ctx, req, txs, SimpleDag)...)
+		return append(txRes, app.parallelProcessTxs(ctx, txs, SimpleDag)...)
 	}
 
 	return app.serialProcessTxs(ctx, txs)
 }
 
-func (app *BaseApp) parallelProcessTxs(ctx sdk.Context, req sdk.DeliverTxBatchRequest, txs [][]byte, SimpleDag []int64) []*abci.ExecTxResult {
-	return app.deliverTxBatch(ctx, req, txs, SimpleDag)
+func (app *BaseApp) parallelProcessTxs(ctx sdk.Context, txs [][]byte, SimpleDag []int64) []*abci.ExecTxResult {
+	entries := make([]*sdk.DeliverTxEntry, len(txs))
+	var span trace.Span
+	if app.TracingEnabled {
+		_, span = app.TracingInfo.Start("GenerateEstimatedWritesets")
+	}
+	wg := sync.WaitGroup{}
+	for txIndex, tx := range txs {
+		wg.Add(1)
+		go func(txIndex int, tx []byte) {
+			defer wg.Done()
+			typedTx, err := app.txDecoder(tx)
+			if err != nil {
+				app.logger.Error("error while decoding tx", "err", err)
+				return
+			}
+			entries[txIndex] = app.GetDeliverTxEntry(ctx, txIndex, tx, typedTx, SimpleDag)
+		}(txIndex, tx)
+	}
+
+	wg.Wait()
+
+	if app.TracingEnabled {
+		span.End()
+	}
+
+	return app.deliverTxBatch(ctx, sdk.DeliverTxBatchRequest{TxEntries: entries})
+}
+
+func (app *BaseApp) GetDeliverTxEntry(ctx sdk.Context, absoluateIndex int, bz []byte, tx sdk.Tx, simpleDag []int64) (res *sdk.DeliverTxEntry) {
+	res = &sdk.DeliverTxEntry{
+		//Request:       abci.RequestDeliverTx{Tx: bz},
+		SdkTx:         tx,
+		Checksum:      sha256.Sum256(bz),
+		AbsoluteIndex: absoluateIndex,
+		SimpleDag:     simpleDag,
+		Tx:            bz,
+	}
+	if tx == nil {
+		return
+	}
+	defer func() {
+		if err := recover(); err != nil {
+			ctx.Logger().Error(fmt.Sprintf("panic when generating estimated writeset for %X: %s", bz, err))
+		}
+	}()
+	//// get prefill estimate
+	//estimatedWritesets, err := app.AccessControlKeeper.GenerateEstimatedWritesets(ctx, app.GetAnteDepGenerator(), txIndex, tx)
+	//// if no error, then we assign the mapped writesets for prefill estimate
+	//if err == nil {
+	//	res.EstimatedWritesets = estimatedWritesets
+	//}
+	return
 }
 
 func (app *BaseApp) serialProcessTxs(ctx sdk.Context, txs [][]byte) []*abci.ExecTxResult {

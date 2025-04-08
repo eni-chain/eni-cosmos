@@ -4,7 +4,8 @@ import (
 	dbm "github.com/cometbft/cometbft-db"
 
 	"cosmossdk.io/store/types"
-	occtypes "github.com/cosmos/cosmos-sdk/types/occ"
+	//occtypes "github.com/cosmos/cosmos-sdk/types/occ"
+	occtypes "cosmossdk.io/store/multiversion/occ"
 )
 
 // Iterates over iterKVCache items.
