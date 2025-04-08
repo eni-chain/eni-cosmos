@@ -16,36 +16,6 @@ type memIterator struct {
 	mvkv *VersionIndexedStore
 }
 
-func (mi *memIterator) Domain() (start []byte, end []byte) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (mi *memIterator) Valid() bool {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (mi *memIterator) Next() {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (mi *memIterator) Key() (key []byte) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (mi *memIterator) Error() error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (mi *memIterator) Close() error {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (store *VersionIndexedStore) newMemIterator(
 	start, end []byte,
 	items *dbm.MemDB,
