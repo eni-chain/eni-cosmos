@@ -14,8 +14,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/utils/tracing"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type status string
@@ -104,23 +102,23 @@ type scheduler struct {
 	deliverTx          func(ctx sdk.Context, tx []byte) *abci.ExecTxResult
 	workers            int
 	multiVersionStores map[sdk.StoreKey]multiversion.MultiVersionStore
-	tracingInfo        *tracing.Info
-	allTasksMap        map[int]*deliverTxTask
-	allTasks           []*deliverTxTask
-	executeCh          chan func()
-	validateCh         chan func()
-	metrics            *schedulerMetrics
-	synchronous        bool // true if maxIncarnation exceeds threshold
-	maxIncarnation     int  // current highest incarnation
+	//tracingInfo        *tracing.Info
+	allTasksMap    map[int]*deliverTxTask
+	allTasks       []*deliverTxTask
+	executeCh      chan func()
+	validateCh     chan func()
+	metrics        *schedulerMetrics
+	synchronous    bool // true if maxIncarnation exceeds threshold
+	maxIncarnation int  // current highest incarnation
 }
 
 // NewScheduler creates a new scheduler
 func NewScheduler(workers int, tracingInfo *tracing.Info, deliverTxFunc func(ctx sdk.Context, tx []byte) *abci.ExecTxResult) Scheduler {
 	return &scheduler{
-		workers:     workers,
-		deliverTx:   deliverTxFunc,
-		tracingInfo: tracingInfo,
-		metrics:     &schedulerMetrics{},
+		workers:   workers,
+		deliverTx: deliverTxFunc,
+		//tracingInfo: tracingInfo,
+		metrics: &schedulerMetrics{},
 	}
 }
 
@@ -391,8 +389,8 @@ func (s *scheduler) shouldRerun(task *deliverTxTask) bool {
 }
 
 func (s *scheduler) validateTask(ctx sdk.Context, task *deliverTxTask) bool {
-	_, span := s.traceSpan(ctx, "SchedulerValidate", task)
-	defer span.End()
+	//_, span := s.traceSpan(ctx, "SchedulerValidate", task)
+	//defer span.End()
 
 	if s.shouldRerun(task) {
 		return false
@@ -410,8 +408,8 @@ func (s *scheduler) findFirstNonValidated() (int, bool) {
 }
 
 func (s *scheduler) validateAll(ctx sdk.Context, tasks []*deliverTxTask) ([]*deliverTxTask, error) {
-	ctx, span := s.traceSpan(ctx, "SchedulerValidateAll", nil)
-	defer span.End()
+	//ctx, span := s.traceSpan(ctx, "SchedulerValidateAll", nil)
+	//defer span.End()
 
 	var mx sync.Mutex
 	var res []*deliverTxTask
@@ -451,9 +449,9 @@ func (s *scheduler) executeAll(ctx sdk.Context, tasks []*deliverTxTask) error {
 	if len(tasks) == 0 {
 		return nil
 	}
-	ctx, span := s.traceSpan(ctx, "SchedulerExecuteAll", nil)
-	span.SetAttributes(attribute.Bool("synchronous", s.synchronous))
-	defer span.End()
+	//ctx, span := s.traceSpan(ctx, "SchedulerExecuteAll", nil)
+	//span.SetAttributes(attribute.Bool("synchronous", s.synchronous))
+	//defer span.End()
 
 	// validationWg waits for all validations to complete
 	// validations happen in separate goroutines in order to wait on previous index
@@ -473,31 +471,31 @@ func (s *scheduler) executeAll(ctx sdk.Context, tasks []*deliverTxTask) error {
 }
 
 func (s *scheduler) prepareAndRunTask(wg *sync.WaitGroup, ctx sdk.Context, task *deliverTxTask) {
-	eCtx, eSpan := s.traceSpan(ctx, "SchedulerExecute", task)
-	defer eSpan.End()
+	//eCtx, eSpan := s.traceSpan(ctx, "SchedulerExecute", task)
+	//defer eSpan.End()
 
-	task.Ctx = eCtx
+	//task.Ctx = eCtx
 	s.executeTask(task)
 	wg.Done()
 }
 
-func (s *scheduler) traceSpan(ctx sdk.Context, name string, task *deliverTxTask) (sdk.Context, trace.Span) {
-	spanCtx, span := s.tracingInfo.StartWithContext(name, ctx.TraceSpanContext())
-	if task != nil {
-		//span.SetAttributes(attribute.String("txHash", fmt.Sprintf("%X", sha256.Sum256(task.Request.Tx))))
-		span.SetAttributes(attribute.Int("absoluteIndex", task.AbsoluteIndex))
-		span.SetAttributes(attribute.Int("txIncarnation", task.Incarnation))
-	}
-	ctx = ctx.WithTraceSpanContext(spanCtx)
-	return ctx, span
-}
+//func (s *scheduler) traceSpan(ctx sdk.Context, name string, task *deliverTxTask) (sdk.Context, trace.Span) {
+//	spanCtx, span := s.tracingInfo.StartWithContext(name, ctx.TraceSpanContext())
+//	if task != nil {
+//		//span.SetAttributes(attribute.String("txHash", fmt.Sprintf("%X", sha256.Sum256(task.Request.Tx))))
+//		span.SetAttributes(attribute.Int("absoluteIndex", task.AbsoluteIndex))
+//		span.SetAttributes(attribute.Int("txIncarnation", task.Incarnation))
+//	}
+//	ctx = ctx.WithTraceSpanContext(spanCtx)
+//	return ctx, span
+//}
 
 // prepareTask initializes the context and version stores for a task
 func (s *scheduler) prepareTask(task *deliverTxTask) {
 	ctx := task.Ctx.WithTxIndex(task.AbsoluteIndex)
 
-	_, span := s.traceSpan(ctx, "SchedulerPrepare", task)
-	defer span.End()
+	//_, span := s.traceSpan(ctx, "SchedulerPrepare", task)
+	//defer span.End()
 
 	// initialize the context
 	abortCh := make(chan occ.Abort, len(s.multiVersionStores))
@@ -531,9 +529,9 @@ func (s *scheduler) prepareTask(task *deliverTxTask) {
 }
 
 func (s *scheduler) executeTask(task *deliverTxTask) {
-	dCtx, dSpan := s.traceSpan(task.Ctx, "SchedulerExecuteTask", task)
-	defer dSpan.End()
-	task.Ctx = dCtx
+	//dCtx, dSpan := s.traceSpan(task.Ctx, "SchedulerExecuteTask", task)
+	//defer dSpan.End()
+	//task.Ctx = dCtx
 
 	// in the synchronous case, we only want to re-execute tasks that need re-executing
 	if s.synchronous {

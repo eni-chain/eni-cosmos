@@ -753,17 +753,17 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	}
 
 	// todo remove this check after we have a better way to handle replays
-	app.enableParallelTxExecution = false
-	if app.enableParallelTxExecution && !app.disableBlockGasMeter {
-		//txGroup, gErr := app.GroupByTxs(app.finalizeBlockState.Context(), req.Txs)
-		//if gErr != nil {
-		//	app.logger.Error("parallel transaction grouping failed", "height", req.Height, "time", req.Time, "hash", fmt.Sprintf("%X", req.Hash), gErr, "gErr")
-		//	return nil, gErr
-		//}
-		//batchTxReq.AssociateTxs = txGroup.associateTxs
-		//batchTxReq.OtherEntries = txGroup.otherTxs
-		//batchTxReq.SeqEntries = txGroup.sequentialTxs
-	}
+	//app.enableParallelTxExecution = false
+	//if app.enableParallelTxExecution && !app.disableBlockGasMeter {
+	//txGroup, gErr := app.GroupByTxs(app.finalizeBlockState.Context(), req.Txs)
+	//if gErr != nil {
+	//	app.logger.Error("parallel transaction grouping failed", "height", req.Height, "time", req.Time, "hash", fmt.Sprintf("%X", req.Hash), gErr, "gErr")
+	//	return nil, gErr
+	//}
+	//batchTxReq.AssociateTxs = txGroup.associateTxs
+	//batchTxReq.OtherEntries = txGroup.otherTxs
+	//batchTxReq.SeqEntries = txGroup.sequentialTxs
+	//}
 
 	// Context is now updated with Header information.
 	app.finalizeBlockState.SetContext(app.finalizeBlockState.Context().
@@ -831,7 +831,6 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	// vote extensions, so skip those.
 	startExecTx := time.Now()
 	app.logger.Info("Time ExecTxs", "block height", req.Height, "start exec tx", startExecTx)
-	// todo  remove batch tx req and use req txs directly with simple dag
 	txResults := app.execTx(app.finalizeBlockState.Context(), req.Txs, req.SimpleDag)
 	endExecTx := time.Now()
 	spendTime := endExecTx.Sub(startExecTx).Milliseconds()

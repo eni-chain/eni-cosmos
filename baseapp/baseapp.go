@@ -2,24 +2,6 @@ package baseapp
 
 import (
 	"context"
-	"crypto/sha256"
-	"fmt"
-	tasks "github.com/cosmos/cosmos-sdk/task"
-	"github.com/cosmos/cosmos-sdk/utils/tracing"
-	"math"
-	"sort"
-	"strconv"
-	"sync"
-
-	"github.com/cockroachdb/errors"
-	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/crypto/tmhash"
-	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	dbm "github.com/cosmos/cosmos-db"
-	"github.com/cosmos/gogoproto/proto"
-	"golang.org/x/exp/maps"
-	protov2 "google.golang.org/protobuf/proto"
-
 	"cosmossdk.io/core/header"
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/log"
@@ -27,15 +9,31 @@ import (
 	storemetrics "cosmossdk.io/store/metrics"
 	"cosmossdk.io/store/snapshots"
 	storetypes "cosmossdk.io/store/types"
+	"crypto/sha256"
+	"fmt"
+	"github.com/cockroachdb/errors"
+	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/crypto/tmhash"
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/baseapp/oe"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
+	tasks "github.com/cosmos/cosmos-sdk/task"
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/mempool"
+	"github.com/cosmos/cosmos-sdk/utils/tracing"
+	"github.com/cosmos/gogoproto/proto"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/exp/maps"
+	protov2 "google.golang.org/protobuf/proto"
+	"math"
+	"sort"
+	"strconv"
+	"sync"
 )
 
 type (
@@ -215,6 +213,19 @@ type BaseApp struct {
 func NewBaseApp(
 	name string, logger log.Logger, db dbm.DB, txDecoder sdk.TxDecoder, options ...func(*BaseApp),
 ) *BaseApp {
+	//tp := trace.NewNoopTracerProvider()
+	//otel.SetTracerProvider(trace.NewNoopTracerProvider())
+	//tr := tp.Tracer("component-main")
+	//
+	//tracingEnabled := false //todo add tracing config
+	//if tracingEnabled {
+	//	tp, err := tracing.DefaultTracerProvider()
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//	otel.SetTracerProvider(tp)
+	//	tr = tp.Tracer("component-main")
+	//}
 	app := &BaseApp{
 		logger:           logger,
 		name:             name,
@@ -227,6 +238,12 @@ func NewBaseApp(
 		fauxMerkleMode:   false,
 		sigverifyTx:      true,
 		queryGasLimit:    math.MaxUint64,
+
+		//TracingEnabled: tracingEnabled,
+		//TracingInfo: &tracing.Info{
+		//	Tracer: &tr,
+		//	Mtx:    sync.RWMutex{},
+		//},
 	}
 
 	for _, option := range options {
@@ -1202,9 +1219,10 @@ func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchReques
 }
 
 func (app *BaseApp) execTx(ctx sdk.Context, txs [][]byte, SimpleDag []int64) []*abci.ExecTxResult {
+	app.enableParallelTxExecution = true // todo: enable parallel tx execution
 	if ctx.IsParallelTx() {
 		var txRes []*abci.ExecTxResult
-		//if len(req.AssociateTxs) != 0 { // todo remove if block
+		//if len(req.AssociateTxs) != 0 {
 		//	var assTxs [][]byte
 		//	for _, tx := range req.AssociateTxs {
 		//		assTxs = append(assTxs, tx.Tx)
