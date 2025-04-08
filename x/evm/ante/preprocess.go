@@ -1,18 +1,25 @@
 package ante
 
 import (
+	cosmath "cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 	"fmt"
+	abci "github.com/cometbft/cometbft/abci/types"
+	tmtypes "github.com/cometbft/cometbft/types"
+	"github.com/cosmos/cosmos-sdk/utils/helpers"
+	"github.com/cosmos/cosmos-sdk/x/evm/state"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"math"
 	"math/big"
-
-	storetypes "cosmossdk.io/store/types"
-	"github.com/cosmos/cosmos-sdk/utils/helpers"
 
 	sdkerrors "cosmossdk.io/errors"
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	coserrors "github.com/cosmos/cosmos-sdk/types/errors"
+	sdkTypeerr "github.com/cosmos/cosmos-sdk/types/errors"
 	accountkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	//authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -47,21 +54,30 @@ var AllowedTxTypes = map[derived.SignerVersion][]uint8{
 }
 
 type EVMPreprocessDecorator struct {
-	evmKeeper     *evmkeeper.Keeper
-	accountKeeper *accountkeeper.AccountKeeper
+	evmKeeper       *evmkeeper.Keeper
+	accountKeeper   *accountkeeper.AccountKeeper
+	latestCtxGetter func() sdk.Context // should be read-only
 }
 
-func NewEVMPreprocessDecorator(evmKeeper *evmkeeper.Keeper, accountKeeper *accountkeeper.AccountKeeper) *EVMPreprocessDecorator {
-	return &EVMPreprocessDecorator{evmKeeper: evmKeeper, accountKeeper: accountKeeper}
+func NewEVMPreprocessDecorator(evmKeeper *evmkeeper.Keeper, accountKeeper *accountkeeper.AccountKeeper, latestCtxGetter func() sdk.Context) *EVMPreprocessDecorator {
+	return &EVMPreprocessDecorator{evmKeeper: evmKeeper,
+		accountKeeper:   accountKeeper,
+		latestCtxGetter: latestCtxGetter}
 }
 
 //nolint:revive
 func (p *EVMPreprocessDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
 	msg := evmtypes.MustGetEVMTransactionMessage(tx)
-	if err := Preprocess(ctx, msg); err != nil {
+
+	txData, err := evmtypes.UnpackTxData(msg.Data)
+	if err != nil {
 		return ctx, err
 	}
 
+	ethTx := ethtypes.NewTx(txData.AsEthereumData())
+	if err := Preprocess(ctx, msg, txData, ethTx); err != nil {
+		return ctx, err
+	}
 	// use infinite gas meter for EVM transaction because EVM handles gas checking from within
 	ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
 
@@ -98,7 +114,256 @@ func (p *EVMPreprocessDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate
 		//}
 	}
 
+	adjustedGasLimit := p.evmKeeper.GetPriorityNormalizer(ctx).MulInt64(int64(txData.GetGas()))
+	ctx = ctx.WithGasMeter(storetypes.NewGasMeter(adjustedGasLimit.TruncateInt().Uint64()))
+
+	ctx, err = p.AnteHandleBasic(ctx, true, nil, msg, ethTx)
+	if err != nil {
+		return ctx, err
+	}
+	ctx, err = p.AnteHandleFee(ctx, true, nil, msg, ethTx)
+	if err != nil {
+		return ctx, err
+	}
+	ctx, err = p.AnteHandleSig(ctx, true, nil, msg, ethTx)
+	if err != nil {
+		return ctx, err
+	}
+
 	return next(ctx, tx, simulate)
+}
+
+//nolint:revive
+func (gl *EVMPreprocessDecorator) AnteHandleBasic(ctx sdk.Context, simulate bool, txData ethtx.TxData, msg *evmtypes.MsgEVMTransaction, etx *ethtypes.Transaction) (sdk.Context, error) {
+
+	if msg.Derived != nil && !gl.evmKeeper.EthBlockTestConfig.Enabled {
+		startingNonce := gl.evmKeeper.GetNonce(ctx, msg.Derived.SenderEVMAddr)
+		txNonce := etx.Nonce()
+		if !ctx.IsCheckTx() && !ctx.IsReCheckTx() && startingNonce == txNonce {
+			ctx = ctx.WithDeliverTxCallback(func(callCtx sdk.Context) {
+				// bump nonce if it is for some reason not incremented (e.g. ante failure)
+				if gl.evmKeeper.GetNonce(callCtx, msg.Derived.SenderEVMAddr) == startingNonce {
+					gl.evmKeeper.SetNonce(callCtx, msg.Derived.SenderEVMAddr, startingNonce+1)
+				}
+			})
+		}
+	}
+
+	if etx.To() == nil && len(etx.Data()) > params.MaxInitCodeSize {
+		return ctx, fmt.Errorf("%w: code size %v, limit %v", core.ErrMaxInitCodeSizeExceeded, len(etx.Data()), params.MaxInitCodeSize)
+	}
+
+	if etx.Value().Sign() < 0 {
+		return ctx, coserrors.ErrInvalidCoins
+	}
+
+	intrGas, err := core.IntrinsicGas(etx.Data(), etx.AccessList(), nil, etx.To() == nil, true, true, true)
+	if err != nil {
+		return ctx, err
+	}
+	if etx.Gas() < intrGas {
+		return ctx, coserrors.ErrOutOfGas
+	}
+
+	if etx.Type() == ethtypes.BlobTxType {
+		return ctx, coserrors.ErrUnsupportedTxType
+	}
+
+	// Check if gas exceed the limit
+	if cp := ctx.ConsensusParams(); cp.Block != nil {
+		// If there exists a maximum block gas limit, we must ensure that the tx
+		// does not exceed it.
+		if cp.Block.MaxGas > 0 && etx.Gas() > uint64(cp.Block.MaxGas) {
+			return ctx, sdkerrors.Wrapf(coserrors.ErrOutOfGas, "tx gas limit %d exceeds block max gas %d", etx.Gas(), cp.Block.MaxGas)
+		}
+	}
+	return ctx, nil
+}
+
+func (fc *EVMPreprocessDecorator) AnteHandleFee(ctx sdk.Context, simulate bool, txData ethtx.TxData, msg *evmtypes.MsgEVMTransaction, etx *ethtypes.Transaction) (sdk.Context, error) {
+	if simulate {
+		return ctx, nil
+	}
+
+	ver := msg.Derived.Version
+
+	if txData.GetGasFeeCap().Cmp(fc.getBaseFee(ctx)) < 0 {
+		return ctx, coserrors.ErrInsufficientFee
+	}
+	if txData.GetGasFeeCap().Cmp(fc.getMinimumFee(ctx)) < 0 {
+		return ctx, coserrors.ErrInsufficientFee
+	}
+	if txData.GetGasTipCap().Sign() < 0 {
+		return ctx, sdkerrors.Wrapf(coserrors.ErrInvalidRequest, "gas fee cap cannot be negative")
+	}
+
+	// if EVM version is Cancun or later, and the transaction contains at least one blob, we need to
+	// make sure the transaction carries a non-zero blob fee cap.
+	if ver >= derived.Cancun && len(txData.GetBlobHashes()) > 0 {
+		// For now we are simply assuming excessive blob gas is 0. In the future we might change it to be
+		// dynamic based on prior block usage.
+		zero := uint64(0)
+		if txData.GetBlobFeeCap().Cmp(eip4844.CalcBlobFee(&params.ChainConfig{CancunTime: &zero}, &ethtypes.Header{})) < 0 {
+			return ctx, coserrors.ErrInsufficientFee
+		}
+	}
+
+	// check if the sender has enough balance to cover fees
+	//etx, _ := msg.AsTransaction()
+
+	emsg := fc.evmKeeper.GetEVMMessage(ctx, etx, msg.Derived.SenderEVMAddr)
+	stateDB := state.NewDBImpl(ctx, fc.evmKeeper, false)
+	gp := fc.evmKeeper.GetGasPool()
+
+	blockCtx, err := fc.evmKeeper.GetVMBlockContext(ctx, gp)
+	if err != nil {
+		return ctx, err
+	}
+
+	cfg := evmtypes.DefaultChainConfig().EthereumConfig(fc.evmKeeper.ChainID(ctx))
+	txCtx := core.NewEVMTxContext(emsg)
+	evmInstance := vm.NewEVM(*blockCtx, stateDB, cfg, vm.Config{})
+	evmInstance.SetTxContext(txCtx)
+
+	//st, err := core.ApplyMessage(evmInstance, emsg, &gp)
+	st := core.NewStateTransition(evmInstance, emsg, &gp, true)
+	// run stateless checks before charging gas (mimicking Geth behavior)
+	if !ctx.IsCheckTx() && !ctx.IsReCheckTx() {
+		// we don't want to run nonce check here for CheckTx because we have special
+		// logic for pending nonce during CheckTx in sig.go
+		if err := st.StatelessChecks(); err != nil {
+			return ctx, sdkerrors.Wrap(coserrors.ErrWrongSequence, err.Error())
+		}
+	}
+	if err := st.BuyGas(); err != nil {
+		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, err.Error())
+	}
+	if !ctx.IsCheckTx() && !ctx.IsReCheckTx() {
+		surplus, err := stateDB.Finalize()
+		if err != nil {
+			return ctx, err
+		}
+		if err := fc.evmKeeper.AddAnteSurplus(ctx, etx.Hash(), surplus); err != nil {
+			return ctx, err
+		}
+	}
+
+	// calculate the priority by dividing the total fee with the native gas limit (i.e. the effective native gas price)
+	priority := fc.CalculatePriority(ctx, txData)
+	ctx = ctx.WithPriority(priority.Int64())
+
+	return ctx, nil
+}
+
+func (svd *EVMPreprocessDecorator) AnteHandleSig(ctx sdk.Context, simulate bool, txData ethtx.TxData, msg *evmtypes.MsgEVMTransaction, ethTx *ethtypes.Transaction) (sdk.Context, error) {
+
+	evmAddr := msg.Derived.SenderEVMAddr
+	nextNonce := svd.evmKeeper.GetNonce(ctx, evmAddr)
+	txNonce := ethTx.Nonce()
+
+	// set EVM properties
+	ctx = ctx.WithIsEVM(true)
+	ctx = ctx.WithEVMNonce(txNonce)
+	ctx = ctx.WithEVMSenderAddress(evmAddr.Hex())
+	ctx = ctx.WithEVMTxHash(ethTx.Hash().Hex())
+
+	chainID := svd.evmKeeper.ChainID(ctx)
+	txChainID := ethTx.ChainId()
+
+	// validate chain ID on the transaction
+	switch ethTx.Type() {
+	case ethtypes.LegacyTxType:
+		// legacy either can have a zero or correct chain ID
+		if txChainID.Cmp(big.NewInt(0)) != 0 && txChainID.Cmp(chainID) != 0 {
+			ctx.Logger().Debug("chainID mismatch", "txChainID", ethTx.ChainId(), "chainID", chainID)
+			return ctx, sdkTypeerr.ErrInvalidChainID
+		}
+	default:
+		// after legacy, all transactions must have the correct chain ID
+		if txChainID.Cmp(chainID) != 0 {
+			ctx.Logger().Debug("chainID mismatch", "txChainID", ethTx.ChainId(), "chainID", chainID)
+			return ctx, sdkTypeerr.ErrInvalidChainID
+		}
+	}
+
+	if ctx.IsCheckTx() {
+		if txNonce < nextNonce {
+			return ctx, sdkTypeerr.ErrWrongSequence
+		}
+		ctx = ctx.WithCheckTxCallback(func(thenCtx sdk.Context, e error) {
+			if e != nil {
+				return
+			}
+			txKey := tmtypes.Tx(ctx.TxBytes()).Key()
+			svd.evmKeeper.AddPendingNonce(txKey, evmAddr, txNonce, thenCtx.Priority())
+		})
+
+		// if the mempool expires a transaction, this handler is invoked
+		ctx = ctx.WithExpireTxHandler(func() {
+			txKey := tmtypes.Tx(ctx.TxBytes()).Key()
+			svd.evmKeeper.RemovePendingNonce(txKey)
+		})
+
+		if txNonce > nextNonce {
+			// transaction shall be added to mempool as a pending transaction
+			ctx = ctx.WithPendingTxChecker(func() abci.PendingTxCheckerResponse {
+				latestCtx := svd.latestCtxGetter()
+
+				// nextNonceToBeMined is the next nonce that will be mined
+				// geth calls SetNonce(n+1) after a transaction is mined
+				nextNonceToBeMined := svd.evmKeeper.GetNonce(latestCtx, evmAddr)
+
+				// nextPendingNonce is the minimum nonce a user may send without stomping on an already-sent
+				// nonce, including non-mined or pending transactions
+				// If a user skips a nonce [1,2,4], then this will be the value of that hole (e.g., 3)
+				nextPendingNonce := svd.evmKeeper.CalculateNextNonce(latestCtx, evmAddr, true)
+
+				if txNonce < nextNonceToBeMined {
+					// this nonce has already been mined, we cannot accept it again
+					return abci.Rejected
+				} else if txNonce < nextPendingNonce {
+					// this nonce is allowed to process as it is part of the
+					// consecutive nonces from nextNonceToBeMined to nextPendingNonce
+					// This logic allows multiple nonces from an account to be processed in a block.
+					return abci.Accepted
+				}
+				return abci.Pending
+			})
+		}
+	} else if txNonce != nextNonce {
+		return ctx, sdkTypeerr.ErrWrongSequence
+	}
+
+	return ctx, nil
+}
+
+//// Called at the end of the ante chain to set gas limit properly
+//func (gl EVMPreprocessDecorator) AnteHandleGas(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
+//
+//	return next(ctx, tx, simulate)
+//}
+
+// minimum fee per gas required for a tx to be processed
+func (fc EVMPreprocessDecorator) getBaseFee(ctx sdk.Context) *big.Int {
+	return fc.evmKeeper.GetCurrBaseFeePerGas(ctx).TruncateInt().BigInt()
+}
+
+// lowest allowed fee per gas, base fee will not be lower than this
+func (fc EVMPreprocessDecorator) getMinimumFee(ctx sdk.Context) *big.Int {
+	return fc.evmKeeper.GetMinimumFeePerGas(ctx).TruncateInt().BigInt()
+}
+
+// CalculatePriority returns a priority based on the effective gas price of the transaction
+func (fc EVMPreprocessDecorator) CalculatePriority(ctx sdk.Context, txData ethtx.TxData) *big.Int {
+	gp := txData.EffectiveGasPrice(utils.Big0)
+	if !ctx.IsCheckTx() && !ctx.IsReCheckTx() {
+		metrics.HistogramEvmEffectiveGasPrice(gp)
+	}
+	priority := cosmath.LegacyNewDecFromBigInt(gp).Quo(fc.evmKeeper.GetPriorityNormalizer(ctx)).TruncateInt().BigInt()
+	if priority.Cmp(big.NewInt(MaxPriority)) > 0 {
+		priority = big.NewInt(MaxPriority)
+	}
+	return priority
 }
 
 func (p *EVMPreprocessDecorator) IsAccountBalancePositive(ctx sdk.Context, eniAddr sdk.AccAddress, evmAddr common.Address) bool {
@@ -117,7 +382,7 @@ func (p *EVMPreprocessDecorator) IsAccountBalancePositive(ctx sdk.Context, eniAd
 }
 
 // stateless
-func Preprocess(ctx sdk.Context, msgEVMTransaction *evmtypes.MsgEVMTransaction) error {
+func Preprocess(ctx sdk.Context, msgEVMTransaction *evmtypes.MsgEVMTransaction, txData ethtx.TxData, ethTx *ethtypes.Transaction) error {
 	if msgEVMTransaction.Derived != nil {
 		if msgEVMTransaction.Derived.PubKey == nil {
 			// this means the message has `Derived` set from the outside, in which case we should reject
@@ -126,10 +391,10 @@ func Preprocess(ctx sdk.Context, msgEVMTransaction *evmtypes.MsgEVMTransaction) 
 		// already preprocessed
 		return nil
 	}
-	txData, err := evmtypes.UnpackTxData(msgEVMTransaction.Data)
-	if err != nil {
-		return err
-	}
+	//txData, err := evmtypes.UnpackTxData(msgEVMTransaction.Data)
+	//if err != nil {
+	//	return err
+	//}
 
 	if atx, ok := txData.(*ethtx.AssociateTx); ok {
 		V, R, S := atx.GetRawSignatureValues()
@@ -150,7 +415,7 @@ func Preprocess(ctx sdk.Context, msgEVMTransaction *evmtypes.MsgEVMTransaction) 
 		return nil
 	}
 
-	ethTx := ethtypes.NewTx(txData.AsEthereumData())
+	//ethTx := ethtypes.NewTx(txData.AsEthereumData())
 	chainID := ethTx.ChainId()
 	chainCfg := evmtypes.DefaultChainConfig()
 	ethCfg := chainCfg.EthereumConfig(chainID)
