@@ -2,21 +2,6 @@ package baseapp
 
 import (
 	"context"
-	"fmt"
-	tasks "github.com/cosmos/cosmos-sdk/task"
-	"math"
-	"sort"
-	"strconv"
-
-	"github.com/cockroachdb/errors"
-	abci "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/crypto/tmhash"
-	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	dbm "github.com/cosmos/cosmos-db"
-	"github.com/cosmos/gogoproto/proto"
-	"golang.org/x/exp/maps"
-	protov2 "google.golang.org/protobuf/proto"
-
 	"cosmossdk.io/core/header"
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/log"
@@ -24,6 +9,19 @@ import (
 	storemetrics "cosmossdk.io/store/metrics"
 	"cosmossdk.io/store/snapshots"
 	storetypes "cosmossdk.io/store/types"
+	"fmt"
+	"github.com/cockroachdb/errors"
+	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/crypto/tmhash"
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	dbm "github.com/cosmos/cosmos-db"
+	tasks "github.com/cosmos/cosmos-sdk/task"
+	"github.com/cosmos/gogoproto/proto"
+	"golang.org/x/exp/maps"
+	protov2 "google.golang.org/protobuf/proto"
+	"math"
+	"sort"
+	"strconv"
 
 	"github.com/cosmos/cosmos-sdk/baseapp/oe"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -892,7 +890,6 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 			return sdk.GasInfo{}, nil, nil, ctx, errorsmod.Wrapf(sdkerrors.ErrUnknownRequest, "no message handler found for %T", msg)
 		}
 	}
-
 	if app.anteHandler != nil {
 		var (
 			anteCtx sdk.Context
@@ -951,12 +948,10 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 				fmt.Errorf("failed to remove tx from mempool: %w", err)
 		}
 	}
-
 	// Create a new Context based off of the existing Context with a MultiStore branch
 	// in case message processing fails. At this point, the MultiStore
 	// is a branch of a branch.
 	runMsgCtx, msCache := app.cacheTxContext(ctx, txBytes)
-
 	// Attempt to execute all messages and only update state if all messages pass
 	// and we're in DeliverTx. Note, runMsgs will never return a reference to a
 	// Result if any single message fails or does not have a registered Handler.
@@ -1017,18 +1012,15 @@ func (app *BaseApp) runMsgs(ctx sdk.Context, msgs []sdk.Msg, msgsV2 []protov2.Me
 		if mode != execModeFinalize && mode != execModeSimulate {
 			break
 		}
-
 		handler := app.msgServiceRouter.Handler(msg)
 		if handler == nil {
 			return nil, errorsmod.Wrapf(sdkerrors.ErrUnknownRequest, "no message handler found for %T", msg)
 		}
-
 		// ADR 031 request type routing
 		msgResult, err := handler(ctx, msg)
 		if err != nil {
 			return nil, errorsmod.Wrapf(err, "failed to execute message; message index: %d", i)
 		}
-
 		// create message events
 		msgEvents, err := createEvents(app.cdc, msgResult.GetEvents(), msg, msgsV2[i])
 		if err != nil {
@@ -1065,7 +1057,6 @@ func (app *BaseApp) runMsgs(ctx sdk.Context, msgs []sdk.Msg, msgsV2 []protov2.Me
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to marshal tx data")
 	}
-
 	return &sdk.Result{
 		Data:         data,
 		Events:       events.ToABCIEvents(),
