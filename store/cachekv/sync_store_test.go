@@ -1,34 +1,28 @@
 package cachekv_test
 
 import (
+	"cosmossdk.io/store/types"
 	"fmt"
 	"math/rand"
-	"runtime"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
 
-	"cosmossdk.io/math/unsafe"
 	"cosmossdk.io/store/cachekv"
 	"cosmossdk.io/store/dbadapter"
-	"cosmossdk.io/store/types"
 )
 
-func newCacheKVStore() types.CacheKVStore {
+func newSyncCacheKVStore() types.CacheKVStore {
 	mem := dbadapter.Store{DB: dbm.NewMemDB()}
-	return cachekv.NewStore(mem)
+	return cachekv.NewSyncStore(mem)
 }
 
-func keyFmt(i int) []byte { return bz(fmt.Sprintf("key%0.8d", i)) }
-func valFmt(i int) []byte { return bz(fmt.Sprintf("value%0.8d", i)) }
-
-func TestCacheKVStore(t *testing.T) {
+func TestSyncCacheKVStore(t *testing.T) {
 	mem := dbadapter.Store{DB: dbm.NewMemDB()}
-	st := cachekv.NewStore(mem)
+	st := cachekv.NewSyncStore(mem)
 
 	require.Empty(t, st.Get(keyFmt(1)), "Expected `key1` to be empty")
 
@@ -54,11 +48,11 @@ func TestCacheKVStore(t *testing.T) {
 	require.Equal(t, valFmt(2), st.Get(keyFmt(1)))
 
 	// make a new one, check it
-	st = cachekv.NewStore(mem)
+	st = cachekv.NewSyncStore(mem)
 	require.Equal(t, valFmt(2), st.Get(keyFmt(1)))
 
 	// make a new one and delete - should not be removed from mem
-	st = cachekv.NewStore(mem)
+	st = cachekv.NewSyncStore(mem)
 	st.Delete(keyFmt(1))
 	require.Empty(t, st.Get(keyFmt(1)))
 	require.Equal(t, mem.Get(keyFmt(1)), valFmt(2))
@@ -69,17 +63,17 @@ func TestCacheKVStore(t *testing.T) {
 	require.Empty(t, mem.Get(keyFmt(1)), "Expected `key1` to be empty")
 }
 
-func TestCacheKVStoreNoNilSet(t *testing.T) {
+func TestSyncCacheKVStoreNoNilSet(t *testing.T) {
 	mem := dbadapter.Store{DB: dbm.NewMemDB()}
-	st := cachekv.NewStore(mem)
+	st := cachekv.NewSyncStore(mem)
 	require.Panics(t, func() { st.Set([]byte("key"), nil) }, "setting a nil value should panic")
 	require.Panics(t, func() { st.Set(nil, []byte("value")) }, "setting a nil key should panic")
 	require.Panics(t, func() { st.Set([]byte(""), []byte("value")) }, "setting an empty key should panic")
 }
 
-func TestCacheKVStoreNested(t *testing.T) {
+func TestSyncCacheKVStoreNested(t *testing.T) {
 	mem := dbadapter.Store{DB: dbm.NewMemDB()}
-	st := cachekv.NewStore(mem)
+	st := cachekv.NewSyncStore(mem)
 
 	// set. check its there on st and not on mem.
 	st.Set(keyFmt(1), valFmt(1))
@@ -87,7 +81,7 @@ func TestCacheKVStoreNested(t *testing.T) {
 	require.Equal(t, valFmt(1), st.Get(keyFmt(1)))
 
 	// make a new from st and check
-	st2 := cachekv.NewStore(st)
+	st2 := cachekv.NewSyncStore(st)
 	require.Equal(t, valFmt(1), st2.Get(keyFmt(1)))
 
 	// update the value on st2, check it only effects st2
@@ -106,8 +100,8 @@ func TestCacheKVStoreNested(t *testing.T) {
 	require.Equal(t, valFmt(3), mem.Get(keyFmt(1)))
 }
 
-func TestCacheKVIteratorBounds(t *testing.T) {
-	st := newCacheKVStore()
+func TestSyncCacheKVIteratorBounds(t *testing.T) {
+	st := newSyncCacheKVStore()
 
 	// set some items
 	nItems := 5
@@ -161,8 +155,8 @@ func TestCacheKVIteratorBounds(t *testing.T) {
 	require.NoError(t, itr.Close())
 }
 
-func TestCacheKVReverseIteratorBounds(t *testing.T) {
-	st := newCacheKVStore()
+func TestSyncCacheKVReverseIteratorBounds(t *testing.T) {
+	st := newSyncCacheKVStore()
 
 	// set some items
 	nItems := 5
@@ -218,8 +212,8 @@ func TestCacheKVReverseIteratorBounds(t *testing.T) {
 	require.NoError(t, itr.Close())
 }
 
-func TestCacheKVMergeIteratorBasics(t *testing.T) {
-	st := newCacheKVStore()
+func TestSyncCacheKVMergeIteratorBasics(t *testing.T) {
+	st := newSyncCacheKVStore()
 
 	// set and delete an item in the cache, iterator should be empty
 	k, v := keyFmt(0), valFmt(0)
@@ -266,8 +260,8 @@ func TestCacheKVMergeIteratorBasics(t *testing.T) {
 	assertIterateDomain(t, st, 0)
 }
 
-func TestCacheKVMergeIteratorDeleteLast(t *testing.T) {
-	st := newCacheKVStore()
+func TestSyncCacheKVMergeIteratorDeleteLast(t *testing.T) {
+	st := newSyncCacheKVStore()
 
 	// set some items and write them
 	nItems := 5
@@ -292,8 +286,8 @@ func TestCacheKVMergeIteratorDeleteLast(t *testing.T) {
 	}
 }
 
-func TestCacheKVMergeIteratorDeletes(t *testing.T) {
-	st := newCacheKVStore()
+func TestSyncCacheKVMergeIteratorDeletes(t *testing.T) {
+	st := newSyncCacheKVStore()
 	truth := dbm.NewMemDB()
 
 	// set some items and write them
@@ -310,7 +304,7 @@ func TestCacheKVMergeIteratorDeletes(t *testing.T) {
 	}
 
 	// reset
-	st = newCacheKVStore()
+	st = newSyncCacheKVStore()
 	truth = dbm.NewMemDB()
 
 	// set some items and write them
@@ -326,8 +320,8 @@ func TestCacheKVMergeIteratorDeletes(t *testing.T) {
 	}
 }
 
-func TestCacheKVMergeIteratorChunks(t *testing.T) {
-	st := newCacheKVStore()
+func TestSyncCacheKVMergeIteratorChunks(t *testing.T) {
+	st := newSyncCacheKVStore()
 
 	// Use the truth to check values on the merge iterator
 	truth := dbm.NewMemDB()
@@ -357,8 +351,8 @@ func TestCacheKVMergeIteratorChunks(t *testing.T) {
 	assertIterateDomainCheck(t, st, truth, []keyRange{{0, 15}, {25, 35}, {38, 40}, {45, 80}})
 }
 
-func TestCacheKVMergeIteratorDomain(t *testing.T) {
-	st := newCacheKVStore()
+func TestSyncCacheKVMergeIteratorDomain(t *testing.T) {
+	st := newSyncCacheKVStore()
 
 	itr := st.Iterator(nil, nil)
 	start, end := itr.Domain()
@@ -376,8 +370,8 @@ func TestCacheKVMergeIteratorDomain(t *testing.T) {
 	require.Equal(t, keyFmt(80), end)
 }
 
-func TestCacheKVMergeIteratorRandom(t *testing.T) {
-	st := newCacheKVStore()
+func TestSyncCacheKVMergeIteratorRandom(t *testing.T) {
+	st := newSyncCacheKVStore()
 	truth := dbm.NewMemDB()
 
 	start, end := 25, 975
@@ -391,7 +385,7 @@ func TestCacheKVMergeIteratorRandom(t *testing.T) {
 	}
 }
 
-func TestNilEndIterator(t *testing.T) {
+func TestSyncNilEndIterator(t *testing.T) {
 	const SIZE = 3000
 
 	tests := []struct {
@@ -408,7 +402,7 @@ func TestNilEndIterator(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := newCacheKVStore()
+			st := newSyncCacheKVStore()
 
 			for i := 0; i < SIZE; i++ {
 				kstr := keyFmt(i)
@@ -437,9 +431,9 @@ func TestNilEndIterator(t *testing.T) {
 }
 
 // TestIteratorDeadlock demonstrate the deadlock issue in cache store.
-func TestIteratorDeadlock(t *testing.T) {
+func TestSyncIteratorDeadlock(t *testing.T) {
 	mem := dbadapter.Store{DB: dbm.NewMemDB()}
-	store := cachekv.NewStore(mem)
+	store := cachekv.NewSyncStore(mem)
 	// the channel buffer is 64 and received once, so put at least 66 elements.
 	for i := 0; i < 66; i++ {
 		store.Set([]byte(fmt.Sprintf("key%d", i)), []byte{1})
@@ -452,197 +446,23 @@ func TestIteratorDeadlock(t *testing.T) {
 	defer it2.Close()
 }
 
-//-------------------------------------------------------------------------------------------
-// do some random ops
-
-const (
-	opSet      = 0
-	opSetRange = 1
-	opDel      = 2
-	opDelRange = 3
-	opWrite    = 4
-
-	totalOps = 5 // number of possible operations
-)
-
-func randInt(n int) int {
-	return unsafe.NewRand().Int() % n
-}
-
-// useful for replaying a error case if we find one
-func doOp(t *testing.T, st types.CacheKVStore, truth dbm.DB, op int, args ...int) {
-	t.Helper()
-	switch op {
-	case opSet:
-		k := args[0]
-		st.Set(keyFmt(k), valFmt(k))
-		err := truth.Set(keyFmt(k), valFmt(k))
-		require.NoError(t, err)
-	case opSetRange:
-		start := args[0]
-		end := args[1]
-		setRange(t, st, truth, start, end)
-	case opDel:
-		k := args[0]
-		st.Delete(keyFmt(k))
-		err := truth.Delete(keyFmt(k))
-		require.NoError(t, err)
-	case opDelRange:
-		start := args[0]
-		end := args[1]
-		deleteRange(t, st, truth, start, end)
-	case opWrite:
-		st.Write()
-	}
-}
-
-func doRandomOp(t *testing.T, st types.CacheKVStore, truth dbm.DB, maxKey int) {
-	t.Helper()
-	r := randInt(totalOps)
-	switch r {
-	case opSet:
-		k := randInt(maxKey)
-		st.Set(keyFmt(k), valFmt(k))
-		err := truth.Set(keyFmt(k), valFmt(k))
-		require.NoError(t, err)
-	case opSetRange:
-		start := randInt(maxKey - 2)
-		end := randInt(maxKey-start) + start
-		setRange(t, st, truth, start, end)
-	case opDel:
-		k := randInt(maxKey)
-		st.Delete(keyFmt(k))
-		err := truth.Delete(keyFmt(k))
-		require.NoError(t, err)
-	case opDelRange:
-		start := randInt(maxKey - 2)
-		end := randInt(maxKey-start) + start
-		deleteRange(t, st, truth, start, end)
-	case opWrite:
-		st.Write()
-	}
-}
-
-//-------------------------------------------------------------------------------------------
-
-// iterate over whole domain
-func assertIterateDomain(t *testing.T, st types.KVStore, expectedN int) {
-	t.Helper()
-	itr := st.Iterator(nil, nil)
-	i := 0
-	for ; itr.Valid(); itr.Next() {
-		k, v := itr.Key(), itr.Value()
-		require.Equal(t, keyFmt(i), k)
-		require.Equal(t, valFmt(i), v)
-		i++
-	}
-	require.Equal(t, expectedN, i)
-	require.NoError(t, itr.Close())
-}
-
-func assertIterateDomainCheck(t *testing.T, st types.KVStore, mem dbm.DB, r []keyRange) {
-	t.Helper()
-	// iterate over each and check they match the other
-	itr := st.Iterator(nil, nil)
-	itr2, err := mem.Iterator(nil, nil) // ground truth
-	require.NoError(t, err)
-
-	krc := newKeyRangeCounter(r)
-	i := 0
-
-	for ; krc.valid(); krc.next() {
-		require.True(t, itr.Valid())
-		require.True(t, itr2.Valid())
-
-		// check the key/val matches the ground truth
-		k, v := itr.Key(), itr.Value()
-		k2, v2 := itr2.Key(), itr2.Value()
-		require.Equal(t, k, k2)
-		require.Equal(t, v, v2)
-
-		// check they match the counter
-		require.Equal(t, k, keyFmt(krc.key()))
-
-		itr.Next()
-		itr2.Next()
-		i++
-	}
-
-	require.False(t, itr.Valid())
-	require.False(t, itr2.Valid())
-	require.NoError(t, itr.Close())
-	require.NoError(t, itr2.Close())
-}
-
-func assertIterateDomainCompare(t *testing.T, st types.KVStore, mem dbm.DB) {
-	t.Helper()
-	// iterate over each and check they match the other
-	itr := st.Iterator(nil, nil)
-	itr2, err := mem.Iterator(nil, nil) // ground truth
-	require.NoError(t, err)
-	checkIterators(t, itr, itr2)
-	checkIterators(t, itr2, itr)
-	require.NoError(t, itr.Close())
-	require.NoError(t, itr2.Close())
-}
-
-func checkIterators(t *testing.T, itr, itr2 types.Iterator) {
-	t.Helper()
-	for ; itr.Valid(); itr.Next() {
-		require.True(t, itr2.Valid())
-		k, v := itr.Key(), itr.Value()
-		k2, v2 := itr2.Key(), itr2.Value()
-		require.Equal(t, k, k2)
-		require.Equal(t, v, v2)
-		itr2.Next()
-	}
-	require.False(t, itr.Valid())
-	require.False(t, itr2.Valid())
-}
-
-//--------------------------------------------------------
-
-func setRange(t *testing.T, st types.KVStore, mem dbm.DB, start, end int) {
-	t.Helper()
-	for i := start; i < end; i++ {
-		st.Set(keyFmt(i), valFmt(i))
-		err := mem.Set(keyFmt(i), valFmt(i))
-		require.NoError(t, err)
-	}
-}
-
-func deleteRange(t *testing.T, st types.KVStore, mem dbm.DB, start, end int) {
-	t.Helper()
-	for i := start; i < end; i++ {
-		st.Delete(keyFmt(i))
-		err := mem.Delete(keyFmt(i))
-		require.NoError(t, err)
-	}
-}
-
-//--------------------------------------------------------
-
-type keyRange struct {
+type keySyncRange struct {
 	start int
 	end   int
 }
 
-func (kr keyRange) len() int {
+func (kr keySyncRange) len() int {
 	return kr.end - kr.start
 }
 
-func newKeyRangeCounter(kr []keyRange) *keyRangeCounter {
-	return &keyRangeCounter{keyRanges: kr}
-}
-
 // we can iterate over this and make sure our real iterators have all the right keys
-type keyRangeCounter struct {
+type keySyncRangeCounter struct {
 	rangeIdx  int
 	idx       int
 	keyRanges []keyRange
 }
 
-func (krc *keyRangeCounter) valid() bool {
+func (krc *keySyncRangeCounter) valid() bool {
 	maxRangeIdx := len(krc.keyRanges) - 1
 	maxRange := krc.keyRanges[maxRangeIdx]
 
@@ -655,7 +475,7 @@ func (krc *keyRangeCounter) valid() bool {
 	return false
 }
 
-func (krc *keyRangeCounter) next() {
+func (krc *keySyncRangeCounter) next() {
 	thisKeyRange := krc.keyRanges[krc.rangeIdx]
 	if krc.idx == thisKeyRange.len()-1 {
 		krc.rangeIdx++
@@ -665,18 +485,16 @@ func (krc *keyRangeCounter) next() {
 	}
 }
 
-func (krc *keyRangeCounter) key() int {
+func (krc *keySyncRangeCounter) key() int {
 	thisKeyRange := krc.keyRanges[krc.rangeIdx]
 	return thisKeyRange.start + krc.idx
 }
 
 //--------------------------------------------------------
 
-func bz(s string) []byte { return []byte(s) }
-
-func BenchmarkCacheKVStoreGetNoKeyFound(b *testing.B) {
+func BenchmarkSyncCacheKVStoreGetNoKeyFound(b *testing.B) {
 	b.ReportAllocs()
-	st := newCacheKVStore()
+	st := newSyncCacheKVStore()
 	b.ResetTimer()
 	// assumes b.N < 2**24
 	for i := 0; i < b.N; i++ {
@@ -684,9 +502,9 @@ func BenchmarkCacheKVStoreGetNoKeyFound(b *testing.B) {
 	}
 }
 
-func BenchmarkCacheKVStoreGetKeyFound(b *testing.B) {
+func BenchmarkSyncCacheKVStoreGetKeyFound(b *testing.B) {
 	b.ReportAllocs()
-	st := newCacheKVStore()
+	st := newSyncCacheKVStore()
 	for i := 0; i < b.N; i++ {
 		arr := []byte{byte((i & 0xFF0000) >> 16), byte((i & 0xFF00) >> 8), byte(i & 0xFF)}
 		st.Set(arr, arr)
@@ -698,42 +516,9 @@ func BenchmarkCacheKVStoreGetKeyFound(b *testing.B) {
 	}
 }
 
-func BenchmarkConcurrentRW(b *testing.B) {
-	st := newCacheKVStore()
-	b.SetParallelism(10) //Set the number of concurrent Goroutines to 10
-	runtime.GOMAXPROCS(10)
-	b.N = 10000
-	b.ResetTimer()
-	for i := 0; i < 50000; i++ {
-		arr := []byte{byte((i & 0xFF0000) >> 16), byte((i & 0xFF00) >> 8), byte(i & 0xFF)}
-		st.Set(arr, arr)
-	}
-	//var maxGoroutines int32
-	var goroutineCount int32
-	b.RunParallel(func(pb *testing.PB) {
-		atomic.AddInt32(&goroutineCount, 1)
-
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
-		localOps := 0
-
-		for pb.Next() {
-
-			i := r.Intn(200000)
-			val := st.Get([]byte{byte((i & 0xFF0000) >> 16), byte((i & 0xFF00) >> 8), byte(i & 0xFF)})
-			if val == nil {
-				arr := []byte{byte((i & 0xFF0000) >> 16), byte((i & 0xFF00) >> 8), byte(i & 0xFF)}
-				st.Set(arr, arr)
-			}
-			localOps++
-		}
-
-	})
-	b.StopTimer()
-	fmt.Printf("Maximum concurrent goroutines: %d\n", atomic.LoadInt32(&goroutineCount))
-}
-
-func BenchmarkConcurrentRW10(b *testing.B) {
-	st := newCacheKVStore()
+// 10 0.7389 0.67 0.6163  20 12978 ns  13459 ns 13417 ns  30 18226 ns 19482 ns 19993 ns 40  23082 ns 26994 ns 24203 ns/op
+func BenchmarkSyncConcurrentRW10(b *testing.B) {
+	st := newSyncCacheKVStore()
 	b.N = 100000 //
 
 	var wg sync.WaitGroup
@@ -745,7 +530,7 @@ func BenchmarkConcurrentRW10(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for g := 0; g < 100; g++ { //10 0.7389 0.67 0.6163  20 12978 ns  13459 ns 13417 ns  30 18226 ns 19482 ns 19993 ns 40  23082 ns 26994 ns 24203 ns/op 50 29721 ns 27568 ns 27954 ns 100 45983 ns 47359 ns
+	for g := 0; g < 100; g++ { //40 10580 ns 10430 ns 10655 ns 30 10882 ns 11553 ns  10419 ns 50 10473 ns 10336 ns 10742 ns 100 13991 ns 13113 ns 16134 ns 14931 ns
 		c := g
 		go func() {
 			defer wg.Done()
@@ -763,4 +548,5 @@ func BenchmarkConcurrentRW10(b *testing.B) {
 		}()
 	}
 	wg.Wait()
+	//fmt.Printf("elapsed time %d\n", time.Since(startTime).Microseconds())
 }
