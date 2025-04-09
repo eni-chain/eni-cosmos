@@ -2,13 +2,10 @@ package tasks
 
 import (
 	"cosmossdk.io/log"
-	"cosmossdk.io/store/multiversion"
 	store "cosmossdk.io/store/types"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	"github.com/cosmos/cosmos-sdk/types"
 	io "io"
 	"math/rand"
-	"reflect"
 	"testing"
 	"time"
 	//"cosmossdk.io/api/tendermint/abci"
@@ -16,79 +13,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-func Test_scheduler_ProcessAll(t *testing.T) {
-	type fields struct {
-		deliverTx          func(ctx sdk.Context, tx []byte) *abci.ExecTxResult
-		workers            int
-		multiVersionStores map[sdk.StoreKey]multiversion.MultiVersionStore
-		allTasksMap        map[int]*deliverTxTask
-		allTasks           []*deliverTxTask
-		executeCh          chan func()
-		validateCh         chan func()
-		metrics            *schedulerMetrics
-		synchronous        bool
-		maxIncarnation     int
-		loger              log.Logger
-	}
-	type args struct {
-		ctx  types.Context
-		reqs []*sdk.DeliverTxEntry
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    []*abci.ExecTxResult
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := &scheduler{
-				deliverTx:          tt.fields.deliverTx,
-				workers:            tt.fields.workers,
-				multiVersionStores: tt.fields.multiVersionStores,
-				allTasksMap:        tt.fields.allTasksMap,
-				allTasks:           tt.fields.allTasks,
-				executeCh:          tt.fields.executeCh,
-				validateCh:         tt.fields.validateCh,
-				metrics:            tt.fields.metrics,
-				synchronous:        tt.fields.synchronous,
-				maxIncarnation:     tt.fields.maxIncarnation,
-				loger:              tt.fields.loger,
-			}
-			got, err := s.ProcessAll(tt.args.ctx, tt.args.reqs)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ProcessAll() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ProcessAll() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Benchmark_scheduler_ProcessAll(b *testing.B) {
-	benchmarks := []struct {
-		name string
-	}{
-		{
-			name: "Benchmark_scheduler_ProcessAll",
-		},
-	}
-	for _, bm := range benchmarks {
-		b.Run(bm.name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-
-			}
-		})
-	}
-}
-
 func mockDeliverTx(ctx sdk.Context, tx []byte) *abci.ExecTxResult {
-	time.Sleep(100 * time.Microsecond)
+	time.Sleep(1500 * time.Microsecond)
 	return &abci.ExecTxResult{
 		Code:      0,
 		GasWanted: 1000,
@@ -260,7 +186,7 @@ func createTestRequests(n int) []*sdk.DeliverTxEntry {
 
 func Benchmark_scheduler_ProcessAll_10000tx_16workers(b *testing.B) {
 	const (
-		txCount = 10000
+		txCount = 100000
 		workers = 16
 	)
 
