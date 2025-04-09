@@ -14,7 +14,7 @@ import (
 )
 
 func mockDeliverTx(ctx sdk.Context, tx []byte) *abci.ExecTxResult {
-	time.Sleep(1500 * time.Microsecond)
+	time.Sleep(500 * time.Microsecond)
 	return &abci.ExecTxResult{
 		Code:      0,
 		GasWanted: 1000,
@@ -164,7 +164,11 @@ func (m *mockKVStore) Delete(key []byte) {
 	}
 }
 
-func createTestRequests(n int) []*sdk.DeliverTxEntry {
+func createTestRequests(n int) *sdk.DeliverTxBatchRequest {
+	batchReqs := &sdk.DeliverTxBatchRequest{
+		TxEntries: make([]*sdk.DeliverTxEntry, 0, n),
+	}
+
 	reqs := make([]*sdk.DeliverTxEntry, n)
 	for i := 0; i < n; i++ {
 		txBytes := make([]byte, 32)
@@ -179,9 +183,12 @@ func createTestRequests(n int) []*sdk.DeliverTxEntry {
 			Checksum:      [32]byte{},
 			SdkTx:         nil,
 			TxTracer:      nil,
+			//SimpleDag:     []int64{50000, 50000},
 		}
 	}
-	return reqs
+	batchReqs.TxEntries = reqs
+	batchReqs.SimpleDag = []int64{50000, 50000}
+	return batchReqs
 }
 
 func Benchmark_scheduler_ProcessAll_10000tx_16workers(b *testing.B) {
@@ -194,6 +201,8 @@ func Benchmark_scheduler_ProcessAll_10000tx_16workers(b *testing.B) {
 	scheduler := NewScheduler(workers, mockDeliverTx, logger)
 
 	ctx := createTestContext()
+	ctx.WithParallelExec(true)
+	ctx.WithSimpleDag(true)
 	reqs := createTestRequests(txCount)
 	for i := 0; i < b.N; i++ {
 		_, err := scheduler.ProcessAll(ctx, reqs)

@@ -14,9 +14,9 @@ type DeliverTxEntry struct {
 	AbsoluteIndex      int
 	EstimatedWritesets MappedWritesets
 	TxTracer           TxTracer
-	SimpleDag          []int64
-	Tx                 []byte
-	TxIndex            int
+	//SimpleDag          []int64
+	Tx      []byte
+	TxIndex int
 }
 
 // EstimatedWritesets represents an estimated writeset for a transaction mapped by storekey to the writeset estimate.
@@ -26,6 +26,7 @@ type MappedWritesets map[StoreKey]multiversion.WriteSet
 // This can be extended to include request-level tracing or metadata
 type DeliverTxBatchRequest struct {
 	TxEntries []*DeliverTxEntry
+	SimpleDag []int64
 }
 
 // DeliverTxResult represents an individual transaction's response within a batch.

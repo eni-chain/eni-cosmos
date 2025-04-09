@@ -94,7 +94,7 @@ func (dt *deliverTxTask) Increment() {
 
 // Scheduler processes tasks concurrently
 type Scheduler interface {
-	ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]*abci.ExecTxResult, error)
+	ProcessAll(ctx sdk.Context, reqs *sdk.DeliverTxBatchRequest) ([]*abci.ExecTxResult, error)
 }
 
 type scheduler struct {
@@ -194,6 +194,7 @@ func toTasks(reqs []*sdk.DeliverTxEntry) ([]*deliverTxTask, map[int]*deliverTxTa
 			Status:        statusPending,
 			Dependencies:  map[int]struct{}{},
 			TxTracer:      r.TxTracer,
+			//SimpleDag:     r.SimpleDag,
 		}
 
 		tasksMap[r.AbsoluteIndex] = task
@@ -281,7 +282,7 @@ func (s *scheduler) emitMetrics() {
 	telemetry.IncrCounter(float32(s.metrics.maxIncarnation), "scheduler", "incarnations")
 }
 
-func (s *scheduler) ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]*abci.ExecTxResult, error) {
+func (s *scheduler) ProcessAll(ctx sdk.Context, reqs *sdk.DeliverTxBatchRequest) ([]*abci.ExecTxResult, error) {
 	startTime := time.Now()
 	var iterations int
 	// initialize mutli-version stores if they haven't been initialized yet
@@ -289,7 +290,7 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]*
 	// prefill estimates
 	// This "optimization" path is being disabled because we don't have a strong reason to have it given that it
 	// s.PrefillEstimates(reqs)
-	tasks, tasksMap := toTasks(reqs)
+	tasks, tasksMap := toTasks(reqs.TxEntries)
 	s.allTasks = tasks
 	s.allTasksMap = tasksMap
 	s.executeCh = make(chan func(), len(tasks))
@@ -327,9 +328,17 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]*
 
 		//execStart := time.Now()
 		// execute sets statuses of tasks to either executed or aborted
-		if err := s.executeAll(ctx, toExecute); err != nil {
-			return nil, err
+		if ctx.IsSimpleDag() && iterations == 0 && len(reqs.SimpleDag) > 0 {
+			//if true && iterations == 0 && len(reqs.SimpleDag) > 0 {
+			if err := s.executeAllWithDag(ctx, toExecute, reqs.SimpleDag); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := s.executeAll(ctx, toExecute); err != nil {
+				return nil, err
+			}
 		}
+
 		//s.loger.Info("execute all", "spend time ", time.Since(execStart).Milliseconds(), "exec txs len", len(toExecute), "iterations count", iterations)
 
 		//validateStart := time.Now()
@@ -453,17 +462,40 @@ func (s *scheduler) validateAll(ctx sdk.Context, tasks []*deliverTxTask) ([]*del
 	return res, nil
 }
 
+// ExecuteAllWithDag executes all tasks concurrently
+func (s *scheduler) executeAllWithDag(ctx sdk.Context, tasks []*deliverTxTask, simpleDag []int64) error {
+	var iterations int
+	if len(tasks) == 0 {
+		return nil
+	}
+	wg := &sync.WaitGroup{}
+	wg.Add(len(tasks))
+
+	for i := 0; i < len(tasks); i += int(simpleDag[iterations]) {
+		end := i + int(simpleDag[iterations])
+		if end > len(tasks) {
+			end = len(tasks)
+		}
+		for j := i; j < end; j++ {
+			t := tasks[j]
+			s.DoExecute(func() {
+				s.prepareAndRunTaskWithDag(wg, ctx, t) // no need to wait for previous tasks
+			})
+		}
+		iterations++
+		if iterations >= len(simpleDag) {
+			break
+		}
+	}
+	wg.Wait()
+	return nil
+}
+
 // ExecuteAll executes all tasks concurrently
 func (s *scheduler) executeAll(ctx sdk.Context, tasks []*deliverTxTask) error {
 	if len(tasks) == 0 {
 		return nil
 	}
-	//ctx, span := s.traceSpan(ctx, "SchedulerExecuteAll", nil)
-	//span.SetAttributes(attribute.Bool("synchronous", s.synchronous))
-	//defer span.End()
-
-	// validationWg waits for all validations to complete
-	// validations happen in separate goroutines in order to wait on previous index
 	wg := &sync.WaitGroup{}
 	wg.Add(len(tasks))
 
@@ -475,15 +507,15 @@ func (s *scheduler) executeAll(ctx sdk.Context, tasks []*deliverTxTask) error {
 	}
 
 	wg.Wait()
-
 	return nil
 }
 
-func (s *scheduler) prepareAndRunTask(wg *sync.WaitGroup, ctx sdk.Context, task *deliverTxTask) {
-	//eCtx, eSpan := s.traceSpan(ctx, "SchedulerExecute", task)
-	//defer eSpan.End()
+func (s *scheduler) prepareAndRunTaskWithDag(wg *sync.WaitGroup, ctx sdk.Context, task *deliverTxTask) {
+	s.executeTask(task, ctx)
+	wg.Done()
+}
 
-	//task.Ctx = eCtx
+func (s *scheduler) prepareAndRunTask(wg *sync.WaitGroup, ctx sdk.Context, task *deliverTxTask) {
 	s.executeTask(task, ctx)
 	wg.Done()
 }

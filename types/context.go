@@ -66,6 +66,7 @@ type Context struct {
 	cometInfo            comet.BlockInfo
 	headerInfo           header.Info
 	isParallelExec       bool
+	isSimpleDag          bool
 
 	txIndex           int
 	txSum             [32]byte
@@ -119,6 +120,7 @@ func (c Context) PendingTxChecker() abci.PendingTxChecker       { return c.pendi
 func (c Context) CheckTxCallback() func(Context, error)         { return c.checkTxCallback }
 func (c Context) ExpireTxHandler() func()                       { return c.expireTxHandler }
 func (c Context) IsParallelTx() bool                            { return c.isParallelExec }
+func (c Context) IsSimpleDag() bool                             { return c.isSimpleDag }
 
 // Getters
 func (c Context) IsEVM() bool {
@@ -187,6 +189,11 @@ func (c Context) WithEVMPrecompileCalledFromDelegateCall(evmPrecompileCalledFrom
 
 func (c Context) WithParallelExec(isParallelExec bool) Context {
 	c.isParallelExec = isParallelExec
+	return c
+}
+
+func (c Context) WithSimpleDag(isSimpleDag bool) Context {
+	c.isSimpleDag = isSimpleDag
 	return c
 }
 

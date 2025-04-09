@@ -1208,12 +1208,12 @@ func (app *BaseApp) Close() error {
 	return errors.Join(errs...)
 }
 
-func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchRequest) []*abci.ExecTxResult {
+func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req *sdk.DeliverTxBatchRequest) []*abci.ExecTxResult {
 	if app.concurrencyWorkers == 0 {
 		app.concurrencyWorkers = runtime.NumCPU()
 	}
 	scheduler := tasks.NewScheduler(app.concurrencyWorkers, app.deliverTx, app.logger)
-	txRes, err := scheduler.ProcessAll(ctx, req.TxEntries)
+	txRes, err := scheduler.ProcessAll(ctx, req)
 	if err != nil {
 		app.logger.Error("error while processing scheduler", "err", err)
 		panic(err)
@@ -1239,7 +1239,7 @@ func (app *BaseApp) execTx(ctx sdk.Context, txs [][]byte, SimpleDag []int64) []*
 	return app.serialProcessTxs(ctx, txs)
 }
 
-func (app *BaseApp) parallelProcessTxs(ctx sdk.Context, txs [][]byte, SimpleDag []int64) []*abci.ExecTxResult {
+func (app *BaseApp) parallelProcessTxs(ctx sdk.Context, txs [][]byte, simpleDag []int64) []*abci.ExecTxResult {
 	entries := make([]*sdk.DeliverTxEntry, len(txs))
 	var span trace.Span
 	if app.TracingEnabled {
@@ -1257,7 +1257,7 @@ func (app *BaseApp) parallelProcessTxs(ctx sdk.Context, txs [][]byte, SimpleDag 
 				app.logger.Error("error while decoding tx", "err", err)
 				return
 			}
-			entries[txIndex] = app.GetDeliverTxEntry(ctx, txIndex, tx, typedTx, SimpleDag)
+			entries[txIndex] = app.GetDeliverTxEntry(ctx, txIndex, tx, typedTx)
 		}(txIndex, tx)
 	}
 
@@ -1267,16 +1267,15 @@ func (app *BaseApp) parallelProcessTxs(ctx sdk.Context, txs [][]byte, SimpleDag 
 		span.End()
 	}
 
-	return app.deliverTxBatch(ctx, sdk.DeliverTxBatchRequest{TxEntries: entries})
+	return app.deliverTxBatch(ctx, &sdk.DeliverTxBatchRequest{TxEntries: entries, SimpleDag: simpleDag})
 }
 
-func (app *BaseApp) GetDeliverTxEntry(ctx sdk.Context, absoluateIndex int, bz []byte, tx sdk.Tx, simpleDag []int64) (res *sdk.DeliverTxEntry) {
+func (app *BaseApp) GetDeliverTxEntry(ctx sdk.Context, absoluateIndex int, bz []byte, tx sdk.Tx) (res *sdk.DeliverTxEntry) {
 	res = &sdk.DeliverTxEntry{
 		//Request:       abci.RequestDeliverTx{Tx: bz},
 		SdkTx:         tx,
 		Checksum:      sha256.Sum256(bz),
 		AbsoluteIndex: absoluateIndex,
-		SimpleDag:     simpleDag,
 		Tx:            bz,
 	}
 	if tx == nil {
