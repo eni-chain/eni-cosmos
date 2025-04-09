@@ -2,38 +2,48 @@ package tasks
 
 import (
 	"context"
-	abci "github.com/cometbft/cometbft/abci/types"
-	"sort"
-	"sync"
-	"time"
-
 	"cosmossdk.io/log"
 	"cosmossdk.io/store/multiversion"
 	"cosmossdk.io/store/multiversion/occ"
 	store "cosmossdk.io/store/types"
+	"fmt"
+	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"sort"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
-type status string
+type status int32
+
+func (s status) String() string {
+	switch s {
+	case statusPendingInt:
+		return "pending"
+	case statusExecutedInt:
+		return "executed"
+	case statusAbortedInt:
+		return "aborted"
+	case statusValidatedInt:
+		return "validated"
+	case statusWaitingInt:
+		return "waiting"
+	default:
+		return fmt.Sprintf("unknown status (%d)", s) //
+	}
+}
 
 const (
-	// statusPending tasks are ready for execution
-	// all executing tasks are in pending state
-	statusPending status = "pending"
-	// statusExecuted tasks are ready for validation
-	// these tasks did not abort during execution
-	statusExecuted status = "executed"
-	// statusAborted means the task has been aborted
-	// these tasks transition to pending upon next execution
-	statusAborted status = "aborted"
-	// statusValidated means the task has been validated
-	// tasks in this status can be reset if an earlier task fails validation
-	statusValidated status = "validated"
-	// statusWaiting tasks are waiting for another tx to complete
-	statusWaiting status = "waiting"
-	// maximumIterations before we revert to sequential (for high conflict rates)
 	maximumIterations = 10
+)
+const (
+	statusPendingInt   = 0
+	statusExecutedInt  = 1
+	statusAbortedInt   = 2
+	statusValidatedInt = 3
+	statusWaitingInt   = 4
 )
 
 type deliverTxTask struct {
@@ -67,17 +77,19 @@ func (dt *deliverTxTask) AppendDependencies(deps []int) {
 func (dt *deliverTxTask) IsStatus(s status) bool {
 	dt.mx.RLock()
 	defer dt.mx.RUnlock()
-	return dt.Status == s
+	//return dt.Status == s
+	return atomic.LoadInt32((*int32)(&dt.Status)) == int32(s)
 }
 
 func (dt *deliverTxTask) SetStatus(s status) {
 	dt.mx.Lock()
 	defer dt.mx.Unlock()
-	dt.Status = s
+	//dt.Status = s
+	atomic.StoreInt32((*int32)(&dt.Status), int32(s))
 }
 
 func (dt *deliverTxTask) Reset() {
-	dt.SetStatus(statusPending)
+	dt.SetStatus(statusPendingInt)
 	dt.Response = nil
 	dt.Abort = nil
 	dt.AbortCh = nil
@@ -191,7 +203,7 @@ func toTasks(reqs []*sdk.DeliverTxEntry) ([]*deliverTxTask, map[int]*deliverTxTa
 			SdkTx:         r.SdkTx,
 			Checksum:      r.Checksum,
 			AbsoluteIndex: r.AbsoluteIndex,
-			Status:        statusPending,
+			Status:        statusPendingInt,
 			Dependencies:  map[int]struct{}{},
 			TxTracer:      r.TxTracer,
 			//SimpleDag:     r.SimpleDag,
@@ -231,7 +243,7 @@ func dependenciesValidated(tasksMap map[int]*deliverTxTask, deps map[int]struct{
 	for i := range deps {
 		// because idx contains absoluteIndices, we need to fetch from map
 		task := tasksMap[i]
-		if !task.IsStatus(statusValidated) {
+		if !task.IsStatus(statusValidatedInt) {
 			return false
 		}
 	}
@@ -250,7 +262,7 @@ func filterTasks(tasks []*deliverTxTask, filter func(*deliverTxTask) bool) []*de
 
 func allValidated(tasks []*deliverTxTask) bool {
 	for _, t := range tasks {
-		if !t.IsStatus(statusValidated) {
+		if !t.IsStatus(statusValidatedInt) {
 			return false
 		}
 	}
@@ -371,11 +383,11 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs *sdk.DeliverTxBatchRequest)
 func (s *scheduler) shouldRerun(task *deliverTxTask) bool {
 	switch task.Status {
 
-	case statusAborted, statusPending:
+	case statusAbortedInt, statusPendingInt:
 		return true
 
 	// validated tasks can become unvalidated if an earlier re-run task now conflicts
-	case statusExecuted, statusValidated:
+	case statusExecutedInt, statusValidatedInt:
 		// With the current scheduler, we won't actually get to this step if a previous task has already been determined to be invalid,
 		// since we choose to fail fast and mark the subsequent tasks as invalid as well.
 		// TODO: in a future async scheduler that no longer exhaustively validates in order, we may need to carefully handle the `valid=true` with conflicts case
@@ -388,22 +400,22 @@ func (s *scheduler) shouldRerun(task *deliverTxTask) bool {
 				return true
 			} else {
 				// otherwise, wait for completion
-				task.SetStatus(statusWaiting)
+				task.SetStatus(statusWaitingInt)
 				return false
 			}
 		} else if len(conflicts) == 0 {
 			// mark as validated, which will avoid re-validating unless a lower-index re-validates
-			task.SetStatus(statusValidated)
+			task.SetStatus(statusValidatedInt)
 			return false
 		}
 		// conflicts and valid, so it'll validate next time
 		return false
 
-	case statusWaiting:
+	case statusWaitingInt:
 		// if conflicts are done, then this task is ready to run again
 		return dependenciesValidated(s.allTasksMap, task.Dependencies)
 	}
-	panic("unexpected status: " + task.Status)
+	panic("unexpected status: " + task.Status.String())
 }
 
 func (s *scheduler) validateTask(ctx sdk.Context, task *deliverTxTask) bool {
@@ -418,7 +430,7 @@ func (s *scheduler) validateTask(ctx sdk.Context, task *deliverTxTask) bool {
 
 func (s *scheduler) findFirstNonValidated() (int, bool) {
 	for i, t := range s.allTasks {
-		if t.Status != statusValidated {
+		if t.Status != statusValidatedInt {
 			return i, true
 		}
 	}
@@ -578,13 +590,13 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 	if s.synchronous {
 		// even if already validated, it could become invalid again due to preceeding
 		// reruns. Make sure previous writes are invalidated before rerunning.
-		if task.IsStatus(statusValidated) {
+		if task.IsStatus(statusValidatedInt) {
 			s.invalidateTask(task)
 		}
 
 		// waiting transactions may not yet have been reset
 		// this ensures a task has been reset and incremented
-		if !task.IsStatus(statusPending) {
+		if !task.IsStatus(statusPendingInt) {
 			task.Reset()
 			task.Increment()
 		}
@@ -598,7 +610,7 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 	abort, ok := <-task.AbortCh
 	if ok {
 		// if there is an abort item that means we need to wait on the dependent tx
-		task.SetStatus(statusAborted)
+		task.SetStatus(statusAbortedInt)
 		task.Abort = &abort
 		task.AppendDependencies([]int{abort.DependentTxIdx})
 		// write from version store to multiversion stores
@@ -608,7 +620,7 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 		return
 	}
 
-	task.SetStatus(statusExecuted)
+	task.SetStatus(statusExecutedInt)
 	task.Response = resp
 
 	// write from version store to multiversion stores
