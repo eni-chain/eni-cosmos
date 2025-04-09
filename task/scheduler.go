@@ -75,16 +75,10 @@ func (dt *deliverTxTask) AppendDependencies(deps []int) {
 }
 
 func (dt *deliverTxTask) IsStatus(s status) bool {
-	dt.mx.RLock()
-	defer dt.mx.RUnlock()
-	//return dt.Status == s
 	return atomic.LoadInt32((*int32)(&dt.Status)) == int32(s)
 }
 
 func (dt *deliverTxTask) SetStatus(s status) {
-	dt.mx.Lock()
-	defer dt.mx.Unlock()
-	//dt.Status = s
 	atomic.StoreInt32((*int32)(&dt.Status), int32(s))
 }
 
