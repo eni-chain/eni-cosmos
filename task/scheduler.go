@@ -116,6 +116,11 @@ type scheduler struct {
 	synchronous    bool // true if maxIncarnation exceeds threshold
 	maxIncarnation int  // current highest incarnation
 	loger          log.Logger
+	conflictCache  map[int]struct {
+		valid     bool
+		conflicts []int
+	}
+	cacheMu sync.RWMutex
 }
 
 // NewScheduler creates a new scheduler
@@ -126,6 +131,10 @@ func NewScheduler(workers int, deliverTxFunc func(ctx sdk.Context, tx []byte) *a
 		//tracingInfo: tracingInfo,
 		metrics: &schedulerMetrics{},
 		loger:   loger,
+		conflictCache: make(map[int]struct {
+			valid     bool
+			conflicts []int
+		}),
 	}
 }
 
@@ -135,6 +144,9 @@ func (s *scheduler) invalidateTask(task *deliverTxTask) {
 		mv.ClearReadset(task.AbsoluteIndex)
 		mv.ClearIterateset(task.AbsoluteIndex)
 	}
+	s.cacheMu.Lock()
+	delete(s.conflictCache, task.AbsoluteIndex)
+	s.cacheMu.Unlock()
 }
 
 func start(ctx context.Context, ch chan func(), workers int) {
@@ -168,7 +180,7 @@ func (s *scheduler) DoExecute(work func()) {
 	s.executeCh <- work
 }
 
-func (s *scheduler) findConflicts(task *deliverTxTask) (bool, []int) {
+func (s *scheduler) computeConflicts(task *deliverTxTask) (bool, []int) {
 	var conflicts []int
 	uniq := make(map[int]struct{})
 	valid := true
@@ -180,10 +192,35 @@ func (s *scheduler) findConflicts(task *deliverTxTask) (bool, []int) {
 				uniq[c] = struct{}{}
 			}
 		}
-		// any non-ok value makes valid false
 		valid = valid && ok
 	}
 	sort.Ints(conflicts)
+	return valid, conflicts
+}
+
+func (s *scheduler) findConflicts(task *deliverTxTask) (bool, []int) {
+	s.cacheMu.RLock()
+	if cached, ok := s.conflictCache[task.AbsoluteIndex]; ok {
+		s.cacheMu.RUnlock()
+		return cached.valid, cached.conflicts
+	}
+	s.cacheMu.RUnlock()
+
+	valid, conflicts := s.computeConflicts(task)
+	s.cacheMu.Lock()
+	if s.conflictCache == nil {
+		s.conflictCache = make(map[int]struct {
+			valid     bool
+			conflicts []int
+		})
+	}
+
+	s.conflictCache[task.AbsoluteIndex] = struct {
+		valid     bool
+		conflicts []int
+	}{valid, conflicts}
+
+	s.cacheMu.Unlock()
 	return valid, conflicts
 }
 

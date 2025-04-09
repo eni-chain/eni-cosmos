@@ -14,7 +14,8 @@ import (
 )
 
 func mockDeliverTx(ctx sdk.Context, tx []byte) *abci.ExecTxResult {
-	time.Sleep(500 * time.Microsecond)
+	//time.Sleep(500 * time.Microsecond)
+	time.Sleep(1500 * time.Microsecond)
 	return &abci.ExecTxResult{
 		Code:      0,
 		GasWanted: 1000,
