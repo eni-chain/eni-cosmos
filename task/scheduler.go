@@ -655,8 +655,19 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 	task.SetStatus(statusExecutedInt)
 	task.Response = resp
 
+	bankRead := 0
+	bankWrite := 0
+	evmRead := 0
+	evmWrite := 0
 	// write from version store to multiversion stores
-	for _, v := range task.VersionStores {
+	for k, v := range task.VersionStores {
+		if k.Name() == "bank" {
+			bankRead, bankWrite = v.GetRWList()
+		} else if k.Name() == "evm" {
+			evmRead, evmWrite = v.GetRWList()
+		}
 		v.WriteToMultiVersionStore()
 	}
+
+	s.loger.Info("executeTask RWList ", "bankRead", bankRead, "bankWrite", bankWrite, "evmRead", evmRead, "evmWrite", evmWrite)
 }

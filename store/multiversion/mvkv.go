@@ -386,6 +386,10 @@ func (store *VersionIndexedStore) WriteToMultiVersionStore() {
 	store.multiVersionStore.SetIterateset(store.transactionIndex, store.iterateset)
 }
 
+func (store *VersionIndexedStore) GetRWList() (int, int) {
+	return len(store.readset), len(store.writeset)
+}
+
 func (store *VersionIndexedStore) WriteEstimatesToMultiVersionStore() {
 	// TODO: remove?
 	// store.mtx.Lock()
