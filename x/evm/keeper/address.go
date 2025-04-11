@@ -57,10 +57,10 @@ func (k *Keeper) GetEniAddress(ctx sdk.Context, evmAddress common.Address) (sdk.
 }
 
 func (k *Keeper) GetEniAddressOrDefault(ctx sdk.Context, evmAddress common.Address) sdk.AccAddress {
-	addr, ok := k.GetEniAddress(ctx, evmAddress)
-	if ok {
-		return addr
-	}
+	//addr, ok := k.GetEniAddress(ctx, evmAddress)
+	//if ok {
+	//	return addr
+	//}
 	return sdk.AccAddress(evmAddress[:])
 }
 

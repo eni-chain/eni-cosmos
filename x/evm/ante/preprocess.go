@@ -74,10 +74,10 @@ func (p *EVMPreprocessDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate
 		return ctx, err
 	}
 
-	ethTx := ethtypes.NewTx(txData.AsEthereumData())
-	if err := Preprocess(ctx, msg, txData, ethTx); err != nil {
+	if err := Preprocess(ctx, msg, txData); err != nil {
 		return ctx, err
 	}
+
 	// use infinite gas meter for EVM transaction because EVM handles gas checking from within
 	ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
 
@@ -90,7 +90,9 @@ func (p *EVMPreprocessDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate
 	pubkey := derived.PubKey
 	isAssociateTx := derived.IsAssociate
 	associateHelper := helpers.NewAssociationHelper(p.evmKeeper, p.evmKeeper.BankKeeper(), p.accountKeeper)
-	_, isAssociated := p.evmKeeper.GetEVMAddress(ctx, eniAddr)
+	//_, isAssociated := p.evmKeeper.GetEVMAddress(ctx, eniAddr)
+
+	isAssociated := false
 	if isAssociateTx && isAssociated {
 		return ctx, sdkerrors.Wrap(coserrors.ErrInvalidRequest, "account already has association set")
 	} else if isAssociateTx {
@@ -114,21 +116,23 @@ func (p *EVMPreprocessDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate
 		//}
 	}
 
+	ethTx := ethtypes.NewTx(txData.AsEthereumData())
+
+	ctx, err = p.AnteHandleBasic(ctx, simulate, nil, msg, ethTx)
+	if err != nil {
+		return ctx, err
+	}
+	ctx, err = p.AnteHandleFee(ctx, simulate, txData, msg, ethTx)
+	if err != nil {
+		return ctx, err
+	}
+	ctx, err = p.AnteHandleSig(ctx, simulate, nil, msg, ethTx)
+	if err != nil {
+		return ctx, err
+	}
+
 	adjustedGasLimit := p.evmKeeper.GetPriorityNormalizer(ctx).MulInt64(int64(txData.GetGas()))
 	ctx = ctx.WithGasMeter(storetypes.NewGasMeter(adjustedGasLimit.TruncateInt().Uint64()))
-
-	ctx, err = p.AnteHandleBasic(ctx, true, nil, msg, ethTx)
-	if err != nil {
-		return ctx, err
-	}
-	ctx, err = p.AnteHandleFee(ctx, true, nil, msg, ethTx)
-	if err != nil {
-		return ctx, err
-	}
-	ctx, err = p.AnteHandleSig(ctx, true, nil, msg, ethTx)
-	if err != nil {
-		return ctx, err
-	}
 
 	return next(ctx, tx, simulate)
 }
@@ -382,7 +386,7 @@ func (p *EVMPreprocessDecorator) IsAccountBalancePositive(ctx sdk.Context, eniAd
 }
 
 // stateless
-func Preprocess(ctx sdk.Context, msgEVMTransaction *evmtypes.MsgEVMTransaction, txData ethtx.TxData, ethTx *ethtypes.Transaction) error {
+func Preprocess(ctx sdk.Context, msgEVMTransaction *evmtypes.MsgEVMTransaction, txData ethtx.TxData) error {
 	if msgEVMTransaction.Derived != nil {
 		if msgEVMTransaction.Derived.PubKey == nil {
 			// this means the message has `Derived` set from the outside, in which case we should reject
@@ -415,7 +419,7 @@ func Preprocess(ctx sdk.Context, msgEVMTransaction *evmtypes.MsgEVMTransaction, 
 		return nil
 	}
 
-	//ethTx := ethtypes.NewTx(txData.AsEthereumData())
+	ethTx := ethtypes.NewTx(txData.AsEthereumData())
 	chainID := ethTx.ChainId()
 	chainCfg := evmtypes.DefaultChainConfig()
 	ethCfg := chainCfg.EthereumConfig(chainID)

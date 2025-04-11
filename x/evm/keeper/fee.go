@@ -63,6 +63,12 @@ func (k *Keeper) AdjustDynamicBaseFeePerGas(ctx sdk.Context, blockGasUsed uint64
 
 // dont have height be a prefix, just store the current base fee directly
 func (k *Keeper) GetCurrBaseFeePerGas(ctx sdk.Context) cosmossdk_io_math.LegacyDec {
+	minFeePerGas := k.GetMinimumFeePerGas(ctx)
+	if minFeePerGas.IsNil() {
+		minFeePerGas = types.DefaultParams().MinimumFeePerGas
+	}
+	return minFeePerGas
+
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get(types.BaseFeePerGasPrefix)
 	if bz == nil {

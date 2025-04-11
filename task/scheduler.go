@@ -422,7 +422,7 @@ func (s *scheduler) shouldRerun(task *deliverTxTask) bool {
 		// With the current scheduler, we won't actually get to this step if a previous task has already been determined to be invalid,
 		// since we choose to fail fast and mark the subsequent tasks as invalid as well.
 		// TODO: in a future async scheduler that no longer exhaustively validates in order, we may need to carefully handle the `valid=true` with conflicts case
-		if valid, conflicts := s.findConflicts(task); !valid {
+		if valid, conflicts := s.computeConflicts(task); !valid {
 			s.invalidateTask(task)
 			task.AppendDependencies(conflicts)
 
@@ -640,6 +640,7 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 	close(task.AbortCh)
 	abort, ok := <-task.AbortCh
 	if ok {
+		s.loger.Info("executeTask abort ")
 		// if there is an abort item that means we need to wait on the dependent tx
 		task.SetStatus(statusAbortedInt)
 		task.Abort = &abort

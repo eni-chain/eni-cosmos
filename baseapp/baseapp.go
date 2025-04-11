@@ -934,7 +934,11 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 		// NOTE: Alternatively, we could require that AnteHandler ensures that
 		// writes do not happen if aborted/failed.  This may have some
 		// performance benefits, but it'll be more difficult to get right.
+		//if mode != execModeFinalize {
 		anteCtx, msCache = app.cacheTxContext(ctx, txBytes)
+		//} else {
+		//	anteCtx = ctx.WithTxBytes(txBytes)
+		//}
 		anteCtx = anteCtx.WithEventManager(sdk.NewEventManager())
 		newCtx, err := app.anteHandler(anteCtx, tx, mode == execModeSimulate)
 
@@ -963,7 +967,10 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 			return gInfo, nil, nil, ctx, err
 		}
 
+		//if mode != execModeFinalize {
 		msCache.Write()
+		//}
+
 		anteEvents = events.ToABCIEvents()
 	}
 

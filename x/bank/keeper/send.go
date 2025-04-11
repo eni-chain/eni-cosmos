@@ -259,9 +259,9 @@ func (k BaseSendKeeper) SubUnlockedCoins(ctx context.Context, addr sdk.AccAddres
 	if !amt.IsValid() {
 		return errorsmod.Wrap(sdkerrors.ErrInvalidCoins, amt.String())
 	}
-
-	lockedCoins := k.LockedCoins(ctx, addr)
-
+	// eni pledge doesn't make sense. add annotations for now
+	//lockedCoins := k.LockedCoins(ctx, addr)
+	lockedCoins := sdk.NewCoins()
 	for _, coin := range amt {
 		balance := k.GetBalance(ctx, addr, coin.Denom)
 		locked := sdk.NewCoin(coin.Denom, lockedCoins.AmountOf(coin.Denom))

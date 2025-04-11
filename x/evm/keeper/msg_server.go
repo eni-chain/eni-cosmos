@@ -198,7 +198,7 @@ func (k *Keeper) GetEVMMessage(ctx sdk.Context, tx *ethtypes.Transaction, sender
 		Data:             tx.Data(),
 		AccessList:       tx.AccessList(),
 		SkipNonceChecks:  false,
-		SkipFromEOACheck: false,
+		SkipFromEOACheck: true,
 		BlobHashes:       tx.BlobHashes(),
 		BlobGasFeeCap:    tx.BlobGasFeeCap(),
 		From:             sender,

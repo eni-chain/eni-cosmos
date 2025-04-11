@@ -9,6 +9,11 @@ import (
 // Notably this should also return true for self-destructed accounts.
 func (s *DBImpl) Exist(addr common.Address) bool {
 
+	// check if account has a balance
+	if s.GetBalance(addr).Cmp(utils.Uint2560) > 0 {
+		return true
+	}
+
 	// check if the address exists as a contract
 	codeHash := s.GetCodeHash(addr)
 	if codeHash.Cmp(common.Hash{}) != 0 {
@@ -17,11 +22,6 @@ func (s *DBImpl) Exist(addr common.Address) bool {
 
 	// check if the address exists as an EOA
 	if s.GetNonce(addr) > 0 {
-		return true
-	}
-
-	// check if account has a balance
-	if s.GetBalance(addr).Cmp(utils.Uint2560) > 0 {
 		return true
 	}
 
