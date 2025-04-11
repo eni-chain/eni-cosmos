@@ -3,6 +3,7 @@ package multiversion
 import (
 	"bytes"
 	"cosmossdk.io/store/types"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"sort"
@@ -390,10 +391,10 @@ func (store *VersionIndexedStore) GetRWList() (int, int) {
 	return len(store.readset), len(store.writeset)
 }
 
-func (store *VersionIndexedStore) GetRKeyList() []string {
-	keys := []string{}
+func (store *VersionIndexedStore) GetRKeyList() string {
+	keys := ""
 	for k, _ := range store.readset {
-		keys = append(keys, k)
+		keys = hex.EncodeToString([]byte(k)) + "===="
 	}
 	return keys
 }

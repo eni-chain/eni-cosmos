@@ -10,20 +10,17 @@ import (
 func (s *DBImpl) Exist(addr common.Address) bool {
 	// check if account has a balance
 	if s.GetBalance(addr).Cmp(utils.Uint2560) > 0 {
-		println("===================GetBalance====================")
 		return true
 	}
 
 	// check if the address exists as a contract
 	codeHash := s.GetCodeHash(addr)
 	if codeHash.Cmp(common.Hash{}) != 0 {
-		println("===================GetCodeHash====================")
 		return true
 	}
 
 	// check if the address exists as an EOA
 	if s.GetNonce(addr) > 0 {
-		println("===================GetCodeHash====================")
 		return true
 	}
 

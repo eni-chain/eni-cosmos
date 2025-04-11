@@ -6,7 +6,6 @@ import (
 	"cosmossdk.io/store/multiversion"
 	"cosmossdk.io/store/multiversion/occ"
 	store "cosmossdk.io/store/types"
-	"encoding/hex"
 	"fmt"
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/telemetry"
@@ -665,15 +664,11 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 		if k.Name() == "bank" {
 			bankRead, bankWrite = v.GetRWList()
 			keys := v.GetRKeyList()
-			for _, k := range keys {
-				s.loger.Info("executeTask RWList Keys bank", "key", hex.EncodeToString([]byte(k)))
-			}
+			s.loger.Info("executeTask RWList Keys bank", "key", keys)
 		} else if k.Name() == "evm" {
 			evmRead, evmWrite = v.GetRWList()
 			keys := v.GetRKeyList()
-			for _, k := range keys {
-				s.loger.Info("executeTask RWList Keys evm", "key", hex.EncodeToString([]byte(k)))
-			}
+			s.loger.Info("executeTask RWList Keys bank", "key", keys)
 		}
 		rl, wl := v.GetRWList()
 		s.loger.Info("executeTask RWList ", "ReadKey", rl, "WriteKey", wl, "name", k)
