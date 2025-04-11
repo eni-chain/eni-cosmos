@@ -369,7 +369,7 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs *sdk.DeliverTxBatchRequest)
 			toExecute = tasks[startIdx:]
 		}
 
-		//execStart := time.Now()
+		execStart := time.Now()
 		// execute sets statuses of tasks to either executed or aborted
 		if ctx.IsSimpleDag() && iterations == 0 && len(reqs.SimpleDag) > 0 {
 			//if true && iterations == 0 && len(reqs.SimpleDag) > 0 {
@@ -382,9 +382,9 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs *sdk.DeliverTxBatchRequest)
 			}
 		}
 
-		//s.loger.Info("execute all", "spend time ", time.Since(execStart).Milliseconds(), "exec txs len", len(toExecute), "iterations count", iterations)
+		s.loger.Info("execute all", "spend time ", time.Since(execStart).Milliseconds(), "exec txs len", len(toExecute), "iterations count", iterations)
 
-		//validateStart := time.Now()
+		validateStart := time.Now()
 		// validate returns any that should be re-executed
 		// note this processes ALL tasks, not just those recently executed
 		var err error
@@ -392,7 +392,7 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs *sdk.DeliverTxBatchRequest)
 		if err != nil {
 			return nil, err
 		}
-		//s.loger.Info("validate all", "spend time ", time.Since(validateStart).Milliseconds(), "validate txs len", len(toExecute), "iterations count", iterations)
+		s.loger.Info("validate all", "spend time ", time.Since(validateStart).Milliseconds(), "validate txs len", len(toExecute), "iterations count", iterations)
 		// these are retries which apply to metrics
 		s.metrics.retries += len(toExecute)
 		iterations++
