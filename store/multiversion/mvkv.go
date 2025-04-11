@@ -394,7 +394,7 @@ func (store *VersionIndexedStore) GetRWList() (int, int) {
 func (store *VersionIndexedStore) GetRKeyList() string {
 	keys := ""
 	for k, _ := range store.readset {
-		keys = hex.EncodeToString([]byte(k)) + "===="
+		keys += hex.EncodeToString([]byte(k)) + "===="
 	}
 	return keys
 }

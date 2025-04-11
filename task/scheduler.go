@@ -616,7 +616,7 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 	//dCtx, dSpan := s.traceSpan(task.Ctx, "SchedulerExecuteTask", task)
 	//defer dSpan.End()
 	task.Ctx = ctx
-
+	startTime := time.Now()
 	// in the synchronous case, we only want to re-execute tasks that need re-executing
 	if s.synchronous {
 		// even if already validated, it could become invalid again due to preceeding
@@ -668,12 +668,10 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 		} else if k.Name() == "evm" {
 			evmRead, evmWrite = v.GetRWList()
 			keys := v.GetRKeyList()
-			s.loger.Info("executeTask RWList Keys bank", "key", keys)
+			s.loger.Info("executeTask RWList Keys evm", "key", keys)
 		}
-		rl, wl := v.GetRWList()
-		s.loger.Info("executeTask RWList ", "ReadKey", rl, "WriteKey", wl, "name", k)
 		v.WriteToMultiVersionStore()
 	}
 
-	s.loger.Info("executeTask RWList ", "bankRead", bankRead, "bankWrite", bankWrite, "evmRead", evmRead, "evmWrite", evmWrite)
+	s.loger.Info("executeTask RWList ", "bankRead", bankRead, "bankWrite", bankWrite, "evmRead", evmRead, "evmWrite", evmWrite, "elapsed time", time.Since(startTime).Microseconds())
 }
