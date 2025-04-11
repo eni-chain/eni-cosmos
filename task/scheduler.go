@@ -666,13 +666,13 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 			bankRead, bankWrite = v.GetRWList()
 			keys := v.GetRKeyList()
 			for _, k := range keys {
-				s.loger.Info("executeTask RWList Keys bank", hex.EncodeToString([]byte(k)))
+				s.loger.Info("executeTask RWList Keys bank", "key", hex.EncodeToString([]byte(k)))
 			}
 		} else if k.Name() == "evm" {
 			evmRead, evmWrite = v.GetRWList()
 			keys := v.GetRKeyList()
 			for _, k := range keys {
-				s.loger.Info("executeTask RWList Keys evm", hex.EncodeToString([]byte(k)))
+				s.loger.Info("executeTask RWList Keys evm", "key", hex.EncodeToString([]byte(k)))
 			}
 		}
 		v.WriteToMultiVersionStore()
