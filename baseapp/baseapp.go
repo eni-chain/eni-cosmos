@@ -1037,10 +1037,15 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 		}
 	}
 	if mode == execModeFinalize {
-		app.logger.Info("runtx ========", "runtx elapsed time", time.Since(startTime).Microseconds(), "ante before",
-			time.Since(start2Time).Microseconds(), "ante after",
-			time.Since(start3Time).Microseconds(), "write cache", time.Since(start4Time).Microseconds(),
-			"create cache", time.Since(start5Time).Microseconds(), "run msg", time.Since(start6Time).Microseconds())
+		all := time.Since(startTime).Microseconds()
+		anteBefore := time.Since(start2Time).Microseconds()
+		anteAfter := time.Since(start3Time).Microseconds()
+		wCatch := time.Since(start4Time).Microseconds()
+		cCatch := time.Since(start5Time).Microseconds()
+		runMsg := time.Since(start6Time).Microseconds()
+		app.logger.Info("runtx ========", "runtx elapsed time", all, "ante before",
+			all-anteBefore, "ante elapsed time", anteBefore-anteAfter, "write cache", anteAfter-wCatch,
+			"create cache", wCatch-cCatch, "run msg", cCatch-runMsg)
 	}
 	return gInfo, result, anteEvents, ctx, err
 }
