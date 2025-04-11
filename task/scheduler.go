@@ -660,6 +660,9 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 	for _, v := range task.VersionStores {
 		v.WriteToMultiVersionStore()
 	}
-
-	s.loger.Info("executeTask RWList ", "elapsed time delive", time.Since(deliverTime).Microseconds(), "elapsed time", time.Since(startTime).Microseconds(), "elapsed time of write", time.Since(writeTime).Microseconds())
+	allTime := time.Since(startTime).Microseconds()
+	deliveTime := time.Since(deliverTime).Microseconds()
+	writTime :=  time.Since(writeTime).Microseconds()
+	s.loger.Info("executeTask RWList ", "prepareTask",allTime - deliveTime,"elapsed time delive", deliveTime - writTime,
+		 ,"elapsed time", allTime, "elapsed time of write",writTime)
 }
