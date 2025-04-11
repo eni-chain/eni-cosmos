@@ -9,6 +9,7 @@ import (
 // Notably this should also return true for self-destructed accounts.
 func (s *DBImpl) Exist(addr common.Address) bool {
 
+	return false
 	// check if account has a balance
 	if s.GetBalance(addr).Cmp(utils.Uint2560) > 0 {
 		return true
