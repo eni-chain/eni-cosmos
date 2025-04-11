@@ -704,6 +704,7 @@ func (rs *Store) PruneStores(pruningHeight int64) (err error) {
 		store = rs.GetCommitKVStore(key)
 
 		err := store.(*iavl.Store).DeleteVersionsTo(pruningHeight)
+		rs.logger.Info("pruning store finish", "key", key, "elapsed", time.Since(startTime).Microseconds())
 		if err == nil {
 			continue
 		}
@@ -711,7 +712,6 @@ func (rs *Store) PruneStores(pruningHeight int64) (err error) {
 		if errors.Is(err, iavltree.ErrVersionDoesNotExist) {
 			return err
 		}
-		rs.logger.Info("pruning store finish", "key", key, "elapsed", time.Since(startTime).Microseconds())
 		rs.logger.Error("failed to prune store", "key", key, "err", err)
 	}
 	return nil
