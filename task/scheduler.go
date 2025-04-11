@@ -634,7 +634,7 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 	}
 
 	s.prepareTask(task)
-
+	deliverTime := time.Now()
 	resp := s.deliverTx(task.Ctx, task.Tx)
 	// close the abort channel
 	close(task.AbortCh)
@@ -655,23 +655,11 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 	task.SetStatus(statusExecutedInt)
 	task.Response = resp
 
-	bankRead := 0
-	bankWrite := 0
-	evmRead := 0
-	evmWrite := 0
+	writeTime := time.Now()
 	// write from version store to multiversion stores
-	for k, v := range task.VersionStores {
-		if k.Name() == "bank" {
-			bankRead, bankWrite = v.GetRWList()
-			keys := v.GetRKeyList()
-			s.loger.Info("executeTask RWList Keys bank", "key", keys)
-		} else if k.Name() == "evm" {
-			evmRead, evmWrite = v.GetRWList()
-			keys := v.GetRKeyList()
-			s.loger.Info("executeTask RWList Keys evm", "key", keys)
-		}
+	for _, v := range task.VersionStores {
 		v.WriteToMultiVersionStore()
 	}
 
-	s.loger.Info("executeTask RWList ", "bankRead", bankRead, "bankWrite", bankWrite, "evmRead", evmRead, "evmWrite", evmWrite, "elapsed time", time.Since(startTime).Microseconds())
+	s.loger.Info("executeTask RWList ", "elapsed time delive", time.Since(deliverTime).Microseconds(), "elapsed time", time.Since(startTime).Microseconds(), "elapsed time of write", time.Since(writeTime).Microseconds())
 }
