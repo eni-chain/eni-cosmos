@@ -616,7 +616,7 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 	//dCtx, dSpan := s.traceSpan(task.Ctx, "SchedulerExecuteTask", task)
 	//defer dSpan.End()
 	task.Ctx = ctx
-	startTime := time.Now()
+	//startTime := time.Now()
 	// in the synchronous case, we only want to re-execute tasks that need re-executing
 	if s.synchronous {
 		// even if already validated, it could become invalid again due to preceeding
@@ -634,7 +634,7 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 	}
 
 	s.prepareTask(task)
-	deliverTime := time.Now()
+	//deliverTime := time.Now()
 	resp := s.deliverTx(task.Ctx, task.Tx)
 	// close the abort channel
 	close(task.AbortCh)
@@ -655,13 +655,13 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 	task.SetStatus(statusExecutedInt)
 	task.Response = resp
 
-	writeTime := time.Now()
+	//writeTime := time.Now()
 	// write from version store to multiversion stores
 	for _, v := range task.VersionStores {
 		v.WriteToMultiVersionStore()
 	}
-	allTime := time.Since(startTime).Microseconds()
-	deliveTime := time.Since(deliverTime).Microseconds()
-	writTime := time.Since(writeTime).Microseconds()
-	s.loger.Info("executeTask RWList ", "txIndex", task.AbsoluteIndex, "prepareTask", allTime-deliveTime, "elapsed time delive", deliveTime-writTime, "elapsed time", allTime, "elapsed time of write", writTime)
+	//allTime := time.Since(startTime).Microseconds()
+	//deliveTime := time.Since(deliverTime).Microseconds()
+	//writTime := time.Since(writeTime).Microseconds()
+	//s.loger.Info("executeTask RWList ", "txIndex", task.AbsoluteIndex, "prepareTask", allTime-deliveTime, "elapsed time delive", deliveTime-writTime, "elapsed time", allTime, "elapsed time of write", writTime)
 }
