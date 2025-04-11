@@ -675,6 +675,8 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 				s.loger.Info("executeTask RWList Keys evm", "key", hex.EncodeToString([]byte(k)))
 			}
 		}
+		rl, wl := v.GetRWList()
+		s.loger.Info("executeTask RWList ", "ReadKey", rl, "WriteKey", wl, "name", k)
 		v.WriteToMultiVersionStore()
 	}
 

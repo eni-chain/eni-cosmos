@@ -14,7 +14,7 @@ import (
 
 func (s *DBImpl) CreateAccount(acc common.Address) {
 	// clear any existing state but keep balance untouched
-	//s.clearAccountState(acc)
+	s.clearAccountState(acc)
 	s.MarkAccount(acc, AccountCreated)
 }
 
