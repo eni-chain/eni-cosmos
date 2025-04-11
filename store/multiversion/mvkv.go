@@ -390,6 +390,14 @@ func (store *VersionIndexedStore) GetRWList() (int, int) {
 	return len(store.readset), len(store.writeset)
 }
 
+func (store *VersionIndexedStore) GetRKeyList() []string {
+	keys := []string{}
+	for k, _ := range store.readset {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 func (store *VersionIndexedStore) WriteEstimatesToMultiVersionStore() {
 	// TODO: remove?
 	// store.mtx.Lock()

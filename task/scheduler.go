@@ -6,6 +6,7 @@ import (
 	"cosmossdk.io/store/multiversion"
 	"cosmossdk.io/store/multiversion/occ"
 	store "cosmossdk.io/store/types"
+	"encoding/hex"
 	"fmt"
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/telemetry"
@@ -663,8 +664,16 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 	for k, v := range task.VersionStores {
 		if k.Name() == "bank" {
 			bankRead, bankWrite = v.GetRWList()
+			keys := v.GetRKeyList()
+			for _, k := range keys {
+				s.loger.Info("executeTask RWList Keys bank", hex.EncodeToString([]byte(k)))
+			}
 		} else if k.Name() == "evm" {
 			evmRead, evmWrite = v.GetRWList()
+			keys := v.GetRKeyList()
+			for _, k := range keys {
+				s.loger.Info("executeTask RWList Keys evm", hex.EncodeToString([]byte(k)))
+			}
 		}
 		v.WriteToMultiVersionStore()
 	}
