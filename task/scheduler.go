@@ -663,5 +663,5 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 	allTime := time.Since(startTime).Microseconds()
 	deliveTime := time.Since(deliverTime).Microseconds()
 	writTime := time.Since(writeTime).Microseconds()
-	s.loger.Info("executeTask RWList ", "prepareTask", allTime-deliveTime, "elapsed time delive", deliveTime-writTime, "elapsed time", allTime, "elapsed time of write", writTime)
+	s.loger.Info("executeTask RWList ", "txIndex", task.AbsoluteIndex, "prepareTask", allTime-deliveTime, "elapsed time delive", deliveTime-writTime, "elapsed time", allTime, "elapsed time of write", writTime)
 }
