@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	dbm "github.com/cosmos/cosmos-db"
@@ -689,11 +690,11 @@ func (rs *Store) PruneStores(pruningHeight int64) (err error) {
 		return nil
 	}
 
-	rs.logger.Debug("pruning store", "heights", pruningHeight)
+	rs.logger.Info("pruning store", "heights", pruningHeight)
 
 	for key, store := range rs.stores {
-		rs.logger.Debug("pruning store", "key", key) // Also log store.name (a private variable)?
-
+		rs.logger.Info("pruning store", "key", key) // Also log store.name (a private variable)?
+		startTime := time.Now()
 		// If the store is wrapped with an inter-block cache, we must first unwrap
 		// it to get the underlying IAVL store.
 		if store.GetStoreType() != types.StoreTypeIAVL {
@@ -710,7 +711,7 @@ func (rs *Store) PruneStores(pruningHeight int64) (err error) {
 		if errors.Is(err, iavltree.ErrVersionDoesNotExist) {
 			return err
 		}
-
+		rs.logger.Info("pruning store finish", "key", key, "elapsed", time.Since(startTime).Microseconds())
 		rs.logger.Error("failed to prune store", "key", key, "err", err)
 	}
 	return nil
