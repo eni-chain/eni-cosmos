@@ -865,7 +865,7 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 
 	ms := ctx.MultiStore()
 
-	//startTime := time.Now()
+	startTime := time.Now()
 	// only run the tx if there is block gas remaining
 	if mode == execModeFinalize && ctx.BlockGasMeter().IsOutOfGas() {
 		return gInfo, nil, nil, ctx, errorsmod.Wrap(sdkerrors.ErrOutOfGas, "no block gas left to run tx")
@@ -921,8 +921,8 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 			return sdk.GasInfo{}, nil, nil, ctx, errorsmod.Wrapf(sdkerrors.ErrUnknownRequest, "no message handler found for %T", msg)
 		}
 	}
-	//start2Time := time.Now()
-	//start3Time := time.Now()
+	start2Time := time.Now()
+	start3Time := time.Now()
 	if app.anteHandler != nil {
 		var (
 			anteCtx sdk.Context
@@ -968,7 +968,7 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 			}
 			return gInfo, nil, nil, ctx, err
 		}
-		//start3Time = time.Now()
+		start3Time = time.Now()
 		//if mode != execModeFinalize {
 		msCache.Write()
 		//}
@@ -988,12 +988,12 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 				fmt.Errorf("failed to remove tx from mempool: %w", err)
 		}
 	}
-	//start4Time := time.Now()
+	start4Time := time.Now()
 	// Create a new Context based off of the existing Context with a MultiStore branch
 	// in case message processing fails. At this point, the MultiStore
 	// is a branch of a branch.
 	runMsgCtx, msCache := app.cacheTxContext(ctx, txBytes)
-	//start5Time := time.Now()
+	start5Time := time.Now()
 	// Attempt to execute all messages and only update state if all messages pass
 	// and we're in DeliverTx. Note, runMsgs will never return a reference to a
 	// Result if any single message fails or does not have a registered Handler.
@@ -1001,7 +1001,7 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 	if err == nil {
 		result, err = app.runMsgs(runMsgCtx, msgs, msgsV2, mode)
 	}
-	//start6Time := time.Now()
+	start6Time := time.Now()
 	// Run optional postHandlers (should run regardless of the execution result).
 	//
 	// Note: If the postHandler fails, we also revert the runMsgs state.
@@ -1037,15 +1037,15 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 		}
 	}
 	if mode == execModeFinalize {
-		//all := time.Since(startTime).Microseconds()
-		//anteBefore := time.Since(start2Time).Microseconds()
-		//anteAfter := time.Since(start3Time).Microseconds()
-		//wCatch := time.Since(start4Time).Microseconds()
-		//cCatch := time.Since(start5Time).Microseconds()
-		//runMsg := time.Since(start6Time).Microseconds()
-		//app.logger.Info("runtx ========", "runtx elapsed time", all, "ante before",
-		//	all-anteBefore, "ante elapsed time", anteBefore-anteAfter, "write cache", anteAfter-wCatch,
-		//	"create cache", wCatch-cCatch, "run msg", cCatch-runMsg)
+		all := time.Since(startTime).Microseconds()
+		anteBefore := time.Since(start2Time).Microseconds()
+		anteAfter := time.Since(start3Time).Microseconds()
+		wCatch := time.Since(start4Time).Microseconds()
+		cCatch := time.Since(start5Time).Microseconds()
+		runMsg := time.Since(start6Time).Microseconds()
+		app.logger.Info("runtx ========", "runtx elapsed time", all, "ante before",
+			all-anteBefore, "ante elapsed time", anteBefore-anteAfter, "write cache", anteAfter-wCatch,
+			"create cache", wCatch-cCatch, "run msg", cCatch-runMsg)
 	}
 	return gInfo, result, anteEvents, ctx, err
 }
