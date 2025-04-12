@@ -1,18 +1,17 @@
 package ante
 
 import (
+	"fmt"
+	"math"
+	"math/big"
+
 	cosmath "cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
-	"fmt"
 	abci "github.com/cometbft/cometbft/abci/types"
 	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/utils/helpers"
-	"github.com/cosmos/cosmos-sdk/x/evm/state"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"math"
-	"math/big"
 
 	sdkerrors "cosmossdk.io/errors"
 	"github.com/btcsuite/btcd/btcec"
@@ -78,43 +77,43 @@ func (p *EVMPreprocessDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate
 		return ctx, err
 	}
 
-	// use infinite gas meter for EVM transaction because EVM handles gas checking from within
-	ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
-
-	derived := msg.Derived
-	eniAddr := derived.SenderEniAddr
-	evmAddr := derived.SenderEVMAddr
-	ctx.EventManager().EmitEvent(sdk.NewEvent(evmtypes.EventTypeSigner,
-		sdk.NewAttribute(evmtypes.AttributeKeyEvmAddress, evmAddr.Hex()),
-		sdk.NewAttribute(evmtypes.AttributeKeyEniAddress, eniAddr.String())))
-	pubkey := derived.PubKey
-	isAssociateTx := derived.IsAssociate
-	associateHelper := helpers.NewAssociationHelper(p.evmKeeper, p.evmKeeper.BankKeeper(), p.accountKeeper)
-	//_, isAssociated := p.evmKeeper.GetEVMAddress(ctx, eniAddr)
-
-	isAssociated := false
-	if isAssociateTx && isAssociated {
-		return ctx, sdkerrors.Wrap(coserrors.ErrInvalidRequest, "account already has association set")
-	} else if isAssociateTx {
-		// check if the account has enough balance (without charging)
-		if !p.IsAccountBalancePositive(ctx, eniAddr, evmAddr) {
-			metrics.IncrementAssociationError("associate_tx_insufficient_funds", evmtypes.NewAssociationMissingErr(eniAddr.String()))
-			return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, "account needs to have at least 1 wei to force association")
-		}
-		if err := associateHelper.AssociateAddresses(ctx, eniAddr, evmAddr, pubkey); err != nil {
-			return ctx, err
-		}
-
-		return ctx.WithPriority(EVMAssociatePriority), nil // short-circuit without calling next
-	} else if isAssociated {
-		// noop; for readability
-	} else {
-		// not associatedTx and not already associated
-		// todo after completing the related functions, make detailed modifications. For now, comments will not affect the process.
-		//if err := associateHelper.AssociateAddresses(ctx, eniAddr, evmAddr, pubkey); err != nil {
-		//	return ctx, err
-		//}
-	}
+	//// use infinite gas meter for EVM transaction because EVM handles gas checking from within
+	//ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
+	//
+	//derived := msg.Derived
+	//eniAddr := derived.SenderEniAddr
+	//evmAddr := derived.SenderEVMAddr
+	//ctx.EventManager().EmitEvent(sdk.NewEvent(evmtypes.EventTypeSigner,
+	//	sdk.NewAttribute(evmtypes.AttributeKeyEvmAddress, evmAddr.Hex()),
+	//	sdk.NewAttribute(evmtypes.AttributeKeyEniAddress, eniAddr.String())))
+	//pubkey := derived.PubKey
+	//isAssociateTx := derived.IsAssociate
+	//associateHelper := helpers.NewAssociationHelper(p.evmKeeper, p.evmKeeper.BankKeeper(), p.accountKeeper)
+	////_, isAssociated := p.evmKeeper.GetEVMAddress(ctx, eniAddr)
+	//
+	//isAssociated := false
+	//if isAssociateTx && isAssociated {
+	//	return ctx, sdkerrors.Wrap(coserrors.ErrInvalidRequest, "account already has association set")
+	//} else if isAssociateTx {
+	//	// check if the account has enough balance (without charging)
+	//	if !p.IsAccountBalancePositive(ctx, eniAddr, evmAddr) {
+	//		metrics.IncrementAssociationError("associate_tx_insufficient_funds", evmtypes.NewAssociationMissingErr(eniAddr.String()))
+	//		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, "account needs to have at least 1 wei to force association")
+	//	}
+	//	if err := associateHelper.AssociateAddresses(ctx, eniAddr, evmAddr, pubkey); err != nil {
+	//		return ctx, err
+	//	}
+	//
+	//	return ctx.WithPriority(EVMAssociatePriority), nil // short-circuit without calling next
+	//} else if isAssociated {
+	//	// noop; for readability
+	//} else {
+	//	// not associatedTx and not already associated
+	//	// todo after completing the related functions, make detailed modifications. For now, comments will not affect the process.
+	//	//if err := associateHelper.AssociateAddresses(ctx, eniAddr, evmAddr, pubkey); err != nil {
+	//	//	return ctx, err
+	//	//}
+	//}
 
 	ethTx := ethtypes.NewTx(txData.AsEthereumData())
 
@@ -212,51 +211,62 @@ func (fc *EVMPreprocessDecorator) AnteHandleFee(ctx sdk.Context, simulate bool, 
 		}
 	}
 
+	balance := fc.evmKeeper.BankKeeper().GetBalance(ctx, sdk.AccAddress(msg.Derived.SenderEVMAddr[:]), fc.evmKeeper.GetBaseDenom(ctx))
+	if balance.Amount.IsZero() {
+		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, "account needs to have enough balance to cover the transaction fees")
+	}
+	mgval := new(big.Int).SetUint64(etx.Gas())
+	mgval.Mul(mgval, etx.GasPrice())
+	if balance.Amount.LT(cosmath.NewIntFromBigInt(mgval)) {
+		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, "account needs to have enough balance to cover the transaction fees")
+	}
+	return ctx, nil
+
 	// check if the sender has enough balance to cover fees
 	//etx, _ := msg.AsTransaction()
 
-	emsg := fc.evmKeeper.GetEVMMessage(ctx, etx, msg.Derived.SenderEVMAddr)
-	stateDB := state.NewDBImpl(ctx, fc.evmKeeper, false)
-	gp := fc.evmKeeper.GetGasPool()
-
-	blockCtx, err := fc.evmKeeper.GetVMBlockContext(ctx, gp)
-	if err != nil {
-		return ctx, err
-	}
-
-	cfg := evmtypes.DefaultChainConfig().EthereumConfig(fc.evmKeeper.ChainID(ctx))
-	txCtx := core.NewEVMTxContext(emsg)
-	evmInstance := vm.NewEVM(*blockCtx, stateDB, cfg, vm.Config{})
-	evmInstance.SetTxContext(txCtx)
-
-	//st, err := core.ApplyMessage(evmInstance, emsg, &gp)
-	st := core.NewStateTransition(evmInstance, emsg, &gp, true)
-	// run stateless checks before charging gas (mimicking Geth behavior)
-	if !ctx.IsCheckTx() && !ctx.IsReCheckTx() {
-		// we don't want to run nonce check here for CheckTx because we have special
-		// logic for pending nonce during CheckTx in sig.go
-		if err := st.StatelessChecks(); err != nil {
-			return ctx, sdkerrors.Wrap(coserrors.ErrWrongSequence, err.Error())
-		}
-	}
-	if err := st.BuyGas(); err != nil {
-		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, err.Error())
-	}
-	if !ctx.IsCheckTx() && !ctx.IsReCheckTx() {
-		surplus, err := stateDB.Finalize()
-		if err != nil {
-			return ctx, err
-		}
-		if err := fc.evmKeeper.AddAnteSurplus(ctx, etx.Hash(), surplus); err != nil {
-			return ctx, err
-		}
-	}
-
-	// calculate the priority by dividing the total fee with the native gas limit (i.e. the effective native gas price)
-	priority := fc.CalculatePriority(ctx, txData)
-	ctx = ctx.WithPriority(priority.Int64())
-
-	return ctx, nil
+	//emsg := fc.evmKeeper.GetEVMMessage(ctx, etx, msg.Derived.SenderEVMAddr)
+	//stateDB := state.NewDBImpl(ctx, fc.evmKeeper, false)
+	//gp := fc.evmKeeper.GetGasPool()
+	//
+	//blockCtx, err := fc.evmKeeper.GetVMBlockContext(ctx, gp)
+	//if err != nil {
+	//	return ctx, err
+	//}
+	//
+	//cfg := evmtypes.DefaultChainConfig().EthereumConfig(fc.evmKeeper.ChainID(ctx))
+	//txCtx := core.NewEVMTxContext(emsg)
+	//evmInstance := vm.NewEVM(*blockCtx, stateDB, cfg, vm.Config{})
+	//evmInstance.SetTxContext(txCtx)
+	//
+	////st, err := core.ApplyMessage(evmInstance, emsg, &gp)
+	//st := core.NewStateTransition(evmInstance, emsg, &gp, true)
+	//// run stateless checks before charging gas (mimicking Geth behavior)
+	//if !ctx.IsCheckTx() && !ctx.IsReCheckTx() {
+	//	// we don't want to run nonce check here for CheckTx because we have special
+	//	// logic for pending nonce during CheckTx in sig.go
+	//	if err := st.StatelessChecks(); err != nil {
+	//		return ctx, sdkerrors.Wrap(coserrors.ErrWrongSequence, err.Error())
+	//	}
+	//}
+	//if err := st.BuyGas(); err != nil {
+	//	return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, err.Error())
+	//}
+	//if !ctx.IsCheckTx() && !ctx.IsReCheckTx() {
+	//	surplus, err := stateDB.Finalize()
+	//	if err != nil {
+	//		return ctx, err
+	//	}
+	//	if err := fc.evmKeeper.AddAnteSurplus(ctx, etx.Hash(), surplus); err != nil {
+	//		return ctx, err
+	//	}
+	//}
+	//
+	//// calculate the priority by dividing the total fee with the native gas limit (i.e. the effective native gas price)
+	//priority := fc.CalculatePriority(ctx, txData)
+	//ctx = ctx.WithPriority(priority.Int64())
+	//
+	//return ctx, nil
 }
 
 func (svd *EVMPreprocessDecorator) AnteHandleSig(ctx sdk.Context, simulate bool, txData ethtx.TxData, msg *evmtypes.MsgEVMTransaction, ethTx *ethtypes.Transaction) (sdk.Context, error) {
