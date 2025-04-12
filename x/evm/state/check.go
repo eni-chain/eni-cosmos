@@ -8,7 +8,6 @@ import (
 // Exist reports whether the given account exists in state.
 // Notably this should also return true for self-destructed accounts.
 func (s *DBImpl) Exist(addr common.Address) bool {
-
 	// check if account has a balance
 	if s.GetBalance(addr).Cmp(utils.Uint2560) > 0 {
 		return true

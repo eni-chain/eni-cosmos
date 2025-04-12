@@ -3,6 +3,7 @@ package multiversion
 import (
 	"bytes"
 	"cosmossdk.io/store/types"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"sort"
@@ -384,6 +385,18 @@ func (store *VersionIndexedStore) WriteToMultiVersionStore() {
 	store.multiVersionStore.SetWriteset(store.transactionIndex, store.incarnation, store.writeset)
 	store.multiVersionStore.SetReadset(store.transactionIndex, store.readset)
 	store.multiVersionStore.SetIterateset(store.transactionIndex, store.iterateset)
+}
+
+func (store *VersionIndexedStore) GetRWList() (int, int) {
+	return len(store.readset), len(store.writeset)
+}
+
+func (store *VersionIndexedStore) GetRKeyList() string {
+	keys := ""
+	for k, _ := range store.readset {
+		keys += hex.EncodeToString([]byte(k)) + "===="
+	}
+	return keys
 }
 
 func (store *VersionIndexedStore) WriteEstimatesToMultiVersionStore() {

@@ -48,8 +48,8 @@ const (
 )
 
 const (
-	pruneEverythingKeepRecent = 2
-	pruneEverythingInterval   = 10
+	pruneEverythingKeepRecent = 1
+	pruneEverythingInterval   = 2
 )
 
 var (
