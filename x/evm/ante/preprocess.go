@@ -220,6 +220,8 @@ func (fc *EVMPreprocessDecorator) AnteHandleFee(ctx sdk.Context, simulate bool, 
 	if balance.Amount.LT(cosmath.NewIntFromBigInt(mgval)) {
 		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, "account needs to have enough balance to cover the transaction fees")
 	}
+	balance.Amount = balance.Amount.Sub(cosmath.NewIntFromBigInt(mgval))
+	fc.evmKeeper.BankKeeper().SetBalance(ctx, msg.Derived.SenderEVMAddr[:], balance)
 	return ctx, nil
 
 	// check if the sender has enough balance to cover fees
