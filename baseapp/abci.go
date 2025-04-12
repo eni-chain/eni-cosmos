@@ -389,7 +389,7 @@ func (app *BaseApp) PrepareProposal(req *abci.RequestPrepareProposal) (resp *abc
 		return nil, err
 	}
 	app.logger.Info("build simple group", "spend time", time.Since(buildGroupStart).Milliseconds(), "txs", len(simpleGroup.txs))
-	req.Txs = simpleGroup.txs
+	req.Txs = simpleGroup.GetTxs()
 	req.SimpleDag = simpleGroup.GetDag()
 	//log spend time
 	start := time.Now()

@@ -521,6 +521,7 @@ func (s *scheduler) executeAllWithDag(ctx sdk.Context, tasks []*deliverTxTask, s
 		}
 
 		wg.Add(batch)
+		batchStart := time.Now()
 		for j := i; j < end; j++ {
 			t := tasks[j]
 			s.DoExecute(func() {
@@ -528,6 +529,7 @@ func (s *scheduler) executeAllWithDag(ctx sdk.Context, tasks []*deliverTxTask, s
 			})
 		}
 		wg.Wait()
+		s.loger.Info("execute batch with dag", "index", iterations, "spend time ", time.Since(batchStart).Milliseconds(), "batch txs len", end-i)
 		iterations++
 		if iterations >= len(simpleDag) {
 			break
@@ -643,7 +645,7 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 	close(task.AbortCh)
 	abort, ok := <-task.AbortCh
 	if ok {
-		s.loger.Info("executeTask abort ")
+		s.loger.Info("executeTask abort ", "abort contains", fmt.Sprintf("%+v", abort))
 		// if there is an abort item that means we need to wait on the dependent tx
 		task.SetStatus(statusAbortedInt)
 		task.Abort = &abort
