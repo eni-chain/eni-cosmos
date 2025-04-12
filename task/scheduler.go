@@ -371,8 +371,8 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs *sdk.DeliverTxBatchRequest)
 
 		execStart := time.Now()
 		// execute sets statuses of tasks to either executed or aborted
-		if ctx.IsSimpleDag() && iterations == 0 && len(reqs.SimpleDag) > 0 {
-			//if true && iterations == 0 && len(reqs.SimpleDag) > 0 {
+		//if ctx.IsSimpleDag() && iterations == 0 && len(reqs.SimpleDag) > 0 {
+		if true && iterations == 0 && len(reqs.SimpleDag) > 0 {
 			if err := s.executeAllWithDag(ctx, toExecute, reqs.SimpleDag); err != nil {
 				return nil, err
 			}
@@ -512,25 +512,28 @@ func (s *scheduler) executeAllWithDag(ctx sdk.Context, tasks []*deliverTxTask, s
 		return nil
 	}
 	wg := &sync.WaitGroup{}
-	wg.Add(len(tasks))
 
 	for i := 0; i < len(tasks); i += int(simpleDag[iterations]) {
-		end := i + int(simpleDag[iterations])
+		batch := int(simpleDag[iterations])
+		end := i + batch
 		if end > len(tasks) {
 			end = len(tasks)
 		}
+
+		wg.Add(batch)
 		for j := i; j < end; j++ {
 			t := tasks[j]
 			s.DoExecute(func() {
 				s.prepareAndRunTaskWithDag(wg, ctx, t) // no need to wait for previous tasks
 			})
 		}
+		wg.Wait()
 		iterations++
 		if iterations >= len(simpleDag) {
 			break
 		}
 	}
-	wg.Wait()
+
 	return nil
 }
 
