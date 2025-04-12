@@ -94,6 +94,7 @@ func (oe *OptimisticExecution) Execute(req *abci.RequestProcessProposal) {
 		Time:               req.Time,
 		NextValidatorsHash: req.NextValidatorsHash,
 		ProposerAddress:    req.ProposerAddress,
+		SimpleDag:          req.SimpleDag,
 	}
 
 	oe.logger.Debug("OE started", "height", req.Height, "hash", hex.EncodeToString(req.Hash), "time", req.Time.String())
