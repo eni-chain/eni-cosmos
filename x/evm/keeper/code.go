@@ -31,9 +31,9 @@ func (k *Keeper) SetCode(ctx sdk.Context, addr common.Address, code []byte) {
 	h := crypto.Keccak256Hash(code)
 	k.PrefixStore(ctx, types.CodeHashKeyPrefix).Set(addr[:], h[:])
 	// set association with direct cast Eni address for the contract address
-	if _, ok := k.GetEniAddress(ctx, addr); !ok {
-		k.SetAddressMapping(ctx, k.GetEniAddressOrDefault(ctx, addr), addr)
-	}
+	//if _, ok := k.GetEniAddress(ctx, addr); !ok {
+	//	k.SetAddressMapping(ctx, k.GetEniAddressOrDefault(ctx, addr), addr)
+	//}
 }
 
 func (k *Keeper) GetCodeHash(ctx sdk.Context, addr common.Address) common.Hash {
