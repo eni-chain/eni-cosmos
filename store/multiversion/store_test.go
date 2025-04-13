@@ -6,9 +6,9 @@ import (
 
 	"cosmossdk.io/store/dbadapter"
 	"cosmossdk.io/store/multiversion"
-	"github.com/cosmos/cosmos-sdk/types/occ"
+	"cosmossdk.io/store/multiversion/occ"
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
-	dbm "github.com/tendermint/tm-db"
 )
 
 func TestMultiVersionStore(t *testing.T) {
