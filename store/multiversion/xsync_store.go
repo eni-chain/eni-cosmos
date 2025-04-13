@@ -25,10 +25,10 @@ type XSyncStore struct {
 	parentStore types.KVStore
 }
 
-func NewMultiXSyncVersionStore(parentStore types.KVStore) *XSyncStore {
-	multiVersionMap := xsync.NewMap[string, *multiVersionItem](xsync.WithPresize(50000))
-	txWritesetKeys := xsync.NewMap[int, []string](xsync.WithPresize(10100))
-	txReadSets := xsync.NewMap[int, ReadSet](xsync.WithPresize(10100))
+func NewMultiXSyncVersionStore(parentStore types.KVStore, txNum int) *XSyncStore {
+	multiVersionMap := xsync.NewMap[string, *multiVersionItem](xsync.WithPresize(txNum * 5))
+	txWritesetKeys := xsync.NewMap[int, []string](xsync.WithPresize(txNum + 100))
+	txReadSets := xsync.NewMap[int, ReadSet](xsync.WithPresize(txNum + 100))
 	txIterateSets := xsync.NewMap[int, Iterateset]()
 	return &XSyncStore{
 		multiVersionMap: multiVersionMap,

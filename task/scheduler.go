@@ -258,14 +258,14 @@ func (s *scheduler) collectResponses(tasks []*deliverTxTask) []*abci.ExecTxResul
 	return res
 }
 
-func (s *scheduler) tryInitMultiVersionStore(ctx sdk.Context) {
+func (s *scheduler) tryInitMultiVersionStore(ctx sdk.Context, txNum int) {
 	if s.multiVersionStores != nil {
 		return
 	}
 	mvs := make(map[sdk.StoreKey]multiversion.MultiVersionStore)
 	keys := ctx.MultiStore().StoreKeys()
 	for _, sk := range keys {
-		mvs[sk] = multiversion.NewMultiVersionStore(ctx.MultiStore().GetKVStore(sk))
+		mvs[sk] = multiversion.NewMultiXSyncVersionStore(ctx.MultiStore().GetKVStore(sk), txNum)
 	}
 	s.multiVersionStores = mvs
 }
@@ -329,7 +329,7 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs *sdk.DeliverTxBatchRequest)
 	startTime := time.Now()
 	var iterations int
 	// initialize mutli-version stores if they haven't been initialized yet
-	s.tryInitMultiVersionStore(ctx)
+	s.tryInitMultiVersionStore(ctx, len(reqs.TxEntries))
 	// prefill estimates
 	// This "optimization" path is being disabled because we don't have a strong reason to have it given that it
 	// s.PrefillEstimates(reqs)

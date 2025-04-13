@@ -48,19 +48,19 @@ type Store struct {
 	parentStore types.KVStore
 }
 
-//func NewMultiVersionStore(parentStore types.KVStore) *Store {
-//	return &Store{
-//		multiVersionMap: &sync.Map{},
-//		txWritesetKeys:  &sync.Map{},
-//		txReadSets:      &sync.Map{},
-//		txIterateSets:   &sync.Map{},
-//		parentStore:     parentStore,
-//	}
-//}
-
-func NewMultiVersionStore(parentStore types.KVStore) *XSyncStore {
-	return NewMultiXSyncVersionStore(parentStore)
+func NewMultiVersionStore(parentStore types.KVStore) *Store {
+	return &Store{
+		multiVersionMap: &sync.Map{},
+		txWritesetKeys:  &sync.Map{},
+		txReadSets:      &sync.Map{},
+		txIterateSets:   &sync.Map{},
+		parentStore:     parentStore,
+	}
 }
+
+//func NewMultiVersionStore(parentStore types.KVStore) *XSyncStore {
+//	return NewMultiXSyncVersionStore(parentStore)
+//}
 
 // VersionedIndexedStore creates a new versioned index store for a given incarnation and transaction index
 func (s *Store) VersionedIndexedStore(index int, incarnation int, abortChannel chan occ.Abort) *VersionIndexedStore {
