@@ -785,7 +785,9 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 			ProposerAddress: req.ProposerAddress,
 			LastCommit:      req.DecidedLastCommit,
 		}).
-		WithParallelExec(app.enableParallelTxExecution))
+		WithParallelExec(app.enableParallelTxExecution).
+		WithSimpleDag(app.enableSimpleDag),
+	)
 
 	// GasMeter must be set after we get a context with updated consensus params.
 	gasMeter := app.getBlockGasMeter(app.finalizeBlockState.Context())

@@ -267,6 +267,18 @@ func (t *TxGroup) batchOtherTxs() {
 
 // batchAccountGroup account group by column
 func (t *TxGroup) batchAccountGroup() {
+	if len(t.groups) == 0 {
+		return
+	}
+
+	//if len(t.groups) == 1 {
+	//	for _, Txs := range t.groups {
+	//		t.txGroupDAG.txs = append(t.txGroupDAG.txs, Txs[0].RawTx)
+	//	}
+	//	t.txGroupDAG.dag = append(t.txGroupDAG.dag, int64(len(t.groups)))
+	//	return
+	//}
+
 	maxLen := 0
 	for _, Txs := range t.groups {
 		if len(Txs) > maxLen {

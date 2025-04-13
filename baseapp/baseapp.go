@@ -201,6 +201,7 @@ type BaseApp struct {
 
 	// enableParallelTxExecution will enable parallel transaction execution if true.
 	enableParallelTxExecution bool
+	enableSimpleDag           bool
 
 	TracingInfo    *tracing.Info
 	TracingEnabled bool
@@ -1234,6 +1235,7 @@ func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req *sdk.DeliverTxBatchReque
 
 func (app *BaseApp) execTx(ctx sdk.Context, txs [][]byte, SimpleDag []int64) []*abci.ExecTxResult {
 	app.enableParallelTxExecution = true // todo: enable parallel tx execution
+	app.enableSimpleDag = true           // todo: enable simple dag
 	if ctx.IsParallelTx() {
 		var txRes []*abci.ExecTxResult
 		//if len(req.AssociateTxs) != 0 {
