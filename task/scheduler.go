@@ -372,7 +372,6 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs *sdk.DeliverTxBatchRequest)
 		execStart := time.Now()
 		// execute sets statuses of tasks to either executed or aborted
 		if ctx.IsSimpleDag() && iterations == 0 && len(reqs.SimpleDag) > 0 && len(reqs.TxEntries) != len(reqs.SimpleDag) {
-			//if true && iterations == 0 && len(reqs.SimpleDag) > 0 {
 			if err := s.executeAllWithDag(ctx, toExecute, reqs.SimpleDag); err != nil {
 				return nil, err
 			}
