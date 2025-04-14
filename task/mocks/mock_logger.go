@@ -18,8 +18,12 @@ type MockLogger struct {
 }
 
 func (m *MockLogger) Warn(msg string, keyVals ...any) {
-	//TODO implement me
-	panic("implement me")
+	m.ctrl.T.Helper()
+	varargs := []interface{}{msg}
+	for _, a := range keyVals {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Warn", varargs...)
 }
 
 // MockLoggerMockRecorder is the mock recorder for MockLogger.

@@ -4,6 +4,7 @@ import (
 	"cosmossdk.io/log"
 	"cosmossdk.io/store/multiversion"
 	"cosmossdk.io/store/multiversion/occ"
+	store "cosmossdk.io/store/types"
 	storetypes "cosmossdk.io/store/types"
 	"github.com/cometbft/cometbft/abci/types"
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -289,156 +290,18 @@ func mockDeliverTx(ctx sdk.Context, tx []byte) *abci.ExecTxResult {
 }
 
 func createTestContext() sdk.Context {
-	//storeKey := sdk.NewKVStoreKey("test")
-	////multiStore := &mockMultiStore{
-	////	stores: map[store.StoreKey]store.KVStore{
-	////		storeKey: &mockKVStore{},
-	////	},
-	////}
-	//multiStore := &mocks.MockMultiStore{
-	//	KVStores: map[store.StoreKey]store.KVStore{
-	//		storeKey: &mocks.MockKVStore{},
-	//	},
-	//}
-	var t *testing.T
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	multiStore := mocks.NewMockMultiStore(ctrl)
+	storeKey := sdk.NewKVStoreKey("test")
+	multiStore := &mocks.MockBenchMultiStore{
+		Stores: map[store.StoreKey]store.KVStore{
+			storeKey: &mocks.MockBenchKVStore{},
+		},
+	}
+	//var t *testing.T
+	//ctrl := gomock.NewController(t)
+	//defer ctrl.Finish()
+	//multiStore := mocks.NewMockMultiStore(ctrl)
 	return sdk.NewContext(multiStore, cmtproto.Header{Time: time.Now()}, false, log.NewNopLogger())
 }
-
-//
-//type mockMultiStore struct {
-//	stores map[store.StoreKey]store.KVStore
-//}
-//
-//func (m *mockMultiStore) Write() {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (m *mockMultiStore) GetStoreType() store.StoreType {
-//
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (m *mockMultiStore) CacheWrap() store.CacheWrap {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (m *mockMultiStore) CacheWrapWithTrace(w io.Writer, tc store.TraceContext) store.CacheWrap {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (m *mockMultiStore) CacheMultiStoreWithVersion(version int64) (store.CacheMultiStore, error) {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (m *mockMultiStore) GetStore(key store.StoreKey) store.Store {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (m *mockMultiStore) TracingEnabled() bool {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (m *mockMultiStore) SetTracer(w io.Writer) store.MultiStore {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (m *mockMultiStore) SetTracingContext(context store.TraceContext) store.MultiStore {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (m *mockMultiStore) LatestVersion() int64 {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (m *mockMultiStore) GetKVStore(key store.StoreKey) store.KVStore {
-//	return m.stores[key]
-//}
-//
-//func (m *mockMultiStore) CacheMultiStore() store.CacheMultiStore {
-//	return m
-//}
-//
-//func (m *mockMultiStore) StoreKeys() []store.StoreKey {
-//	keys := make([]store.StoreKey, 0, len(m.stores))
-//	for k := range m.stores {
-//		keys = append(keys, k)
-//	}
-//	return keys
-//}
-//
-//func (m *mockMultiStore) SetKVStores(_ func(store.StoreKey, store.KVStore) store.CacheWrap) store.MultiStore {
-//	return m
-//}
-//
-//type mockKVStore struct {
-//	data map[string][]byte
-//}
-//
-//func (m *mockKVStore) GetStoreType() store.StoreType {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (m *mockKVStore) CacheWrap() store.CacheWrap {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (m *mockKVStore) CacheWrapWithTrace(w io.Writer, tc store.TraceContext) store.CacheWrap {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (m *mockKVStore) Iterator(start, end []byte) store.Iterator {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (m *mockKVStore) ReverseIterator(start, end []byte) store.Iterator {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (m *mockKVStore) Get(key []byte) []byte {
-//	if m.data == nil {
-//		return nil
-//	}
-//	return m.data[string(key)]
-//}
-//
-//func (m *mockKVStore) Set(key, value []byte) {
-//	if m.data == nil {
-//		m.data = make(map[string][]byte)
-//	}
-//	m.data[string(key)] = value
-//}
-//
-//func (m *mockKVStore) Has(key []byte) bool {
-//	if m.data == nil {
-//		return false
-//	}
-//	_, ok := m.data[string(key)]
-//	return ok
-//}
-//
-//func (m *mockKVStore) Delete(key []byte) {
-//	if m.data != nil {
-//		delete(m.data, string(key))
-//	}
-//}
 
 func createTestRequests(n int) *sdk.DeliverTxBatchRequest {
 	batchReqs := &sdk.DeliverTxBatchRequest{
