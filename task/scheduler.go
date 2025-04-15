@@ -50,12 +50,11 @@ type deliverTxTask struct {
 	Ctx     sdk.Context
 	AbortCh chan occ.Abort
 
-	mx           sync.RWMutex
-	Status       status
-	Dependencies map[int]struct{}
-	Abort        *occ.Abort
-	Incarnation  int
-	//Request       abci.RequestDeliverTx
+	mx            sync.RWMutex
+	Status        status
+	Dependencies  map[int]struct{}
+	Abort         *occ.Abort
+	Incarnation   int
 	SdkTx         sdk.Tx
 	Checksum      [32]byte
 	Tx            []byte
@@ -107,16 +106,15 @@ type scheduler struct {
 	deliverTx          func(ctx sdk.Context, tx []byte) *abci.ExecTxResult
 	workers            int
 	multiVersionStores map[sdk.StoreKey]multiversion.MultiVersionStore
-	//tracingInfo        *tracing.Info
-	allTasksMap    map[int]*deliverTxTask
-	allTasks       []*deliverTxTask
-	executeCh      chan func()
-	validateCh     chan func()
-	metrics        *schedulerMetrics
-	synchronous    bool // true if maxIncarnation exceeds threshold
-	maxIncarnation int  // current highest incarnation
-	loger          log.Logger
-	conflictCache  map[int]struct {
+	allTasksMap        map[int]*deliverTxTask
+	allTasks           []*deliverTxTask
+	executeCh          chan func()
+	validateCh         chan func()
+	metrics            *schedulerMetrics
+	synchronous        bool // true if maxIncarnation exceeds threshold
+	maxIncarnation     int  // current highest incarnation
+	loger              log.Logger
+	conflictCache      map[int]struct {
 		valid     bool
 		conflicts []int
 	}
@@ -128,9 +126,8 @@ func NewScheduler(workers int, deliverTxFunc func(ctx sdk.Context, tx []byte) *a
 	return &scheduler{
 		workers:   workers,
 		deliverTx: deliverTxFunc,
-		//tracingInfo: tracingInfo,
-		metrics: &schedulerMetrics{},
-		loger:   loger,
+		metrics:   &schedulerMetrics{},
+		loger:     loger,
 		conflictCache: make(map[int]struct {
 			valid     bool
 			conflicts []int
@@ -229,7 +226,6 @@ func toTasks(reqs []*sdk.DeliverTxEntry) ([]*deliverTxTask, map[int]*deliverTxTa
 	allTasks := make([]*deliverTxTask, 0, len(reqs))
 	for _, r := range reqs {
 		task := &deliverTxTask{
-			//Request:       r.Request,
 			Tx:            r.Tx,
 			SdkTx:         r.SdkTx,
 			Checksum:      r.Checksum,
@@ -237,7 +233,6 @@ func toTasks(reqs []*sdk.DeliverTxEntry) ([]*deliverTxTask, map[int]*deliverTxTa
 			Status:        statusPendingInt,
 			Dependencies:  map[int]struct{}{},
 			TxTracer:      r.TxTracer,
-			//SimpleDag:     r.SimpleDag,
 		}
 
 		tasksMap[r.AbsoluteIndex] = task
@@ -330,9 +325,6 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs *sdk.DeliverTxBatchRequest)
 	var iterations int
 	// initialize mutli-version stores if they haven't been initialized yet
 	s.tryInitMultiVersionStore(ctx, len(reqs.TxEntries))
-	// prefill estimates
-	// This "optimization" path is being disabled because we don't have a strong reason to have it given that it
-	// s.PrefillEstimates(reqs)
 	tasks, tasksMap := toTasks(reqs.TxEntries)
 	s.allTasks = tasks
 	s.allTasksMap = tasksMap
@@ -449,9 +441,6 @@ func (s *scheduler) shouldRerun(task *deliverTxTask) bool {
 }
 
 func (s *scheduler) validateTask(ctx sdk.Context, task *deliverTxTask) bool {
-	//_, span := s.traceSpan(ctx, "SchedulerValidate", task)
-	//defer span.End()
-
 	if s.shouldRerun(task) {
 		return false
 	}
@@ -468,9 +457,6 @@ func (s *scheduler) findFirstNonValidated() (int, bool) {
 }
 
 func (s *scheduler) validateAll(ctx sdk.Context, tasks []*deliverTxTask) ([]*deliverTxTask, error) {
-	//ctx, span := s.traceSpan(ctx, "SchedulerValidateAll", nil)
-	//defer span.End()
-
 	var mx sync.Mutex
 	var res []*deliverTxTask
 
@@ -567,23 +553,9 @@ func (s *scheduler) prepareAndRunTask(wg *sync.WaitGroup, ctx sdk.Context, task 
 	wg.Done()
 }
 
-//func (s *scheduler) traceSpan(ctx sdk.Context, name string, task *deliverTxTask) (sdk.Context, trace.Span) {
-//	spanCtx, span := s.tracingInfo.StartWithContext(name, ctx.TraceSpanContext())
-//	if task != nil {
-//		//span.SetAttributes(attribute.String("txHash", fmt.Sprintf("%X", sha256.Sum256(task.Request.Tx))))
-//		span.SetAttributes(attribute.Int("absoluteIndex", task.AbsoluteIndex))
-//		span.SetAttributes(attribute.Int("txIncarnation", task.Incarnation))
-//	}
-//	ctx = ctx.WithTraceSpanContext(spanCtx)
-//	return ctx, span
-//}
-
 // prepareTask initializes the context and version stores for a task
 func (s *scheduler) prepareTask(task *deliverTxTask) {
 	ctx := task.Ctx.WithTxIndex(task.AbsoluteIndex)
-
-	//_, span := s.traceSpan(ctx, "SchedulerPrepare", task)
-	//defer span.End()
 
 	// initialize the context
 	abortCh := make(chan occ.Abort, len(s.multiVersionStores))
@@ -617,8 +589,6 @@ func (s *scheduler) prepareTask(task *deliverTxTask) {
 }
 
 func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
-	//dCtx, dSpan := s.traceSpan(task.Ctx, "SchedulerExecuteTask", task)
-	//defer dSpan.End()
 	task.Ctx = ctx
 	//startTime := time.Now()
 	// in the synchronous case, we only want to re-execute tasks that need re-executing
