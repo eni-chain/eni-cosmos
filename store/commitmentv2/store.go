@@ -100,11 +100,26 @@ func (st *Store) Set(key, value []byte) {
 
 // Implements types.KVStore.
 func (st *Store) Get(key []byte) []byte {
+	//query changeSet first
+	for _, p := range st.changeSet.Pairs {
+		if bytes.Equal(p.Key, key) {
+			if p.Delete {
+				return nil
+			}
+			return p.Value
+		}
+	}
 	return st.tree.Get(key)
 }
 
 // Implements types.KVStore.
 func (st *Store) Has(key []byte) bool {
+	//query changeSet first
+	for _, p := range st.changeSet.Pairs {
+		if bytes.Equal(p.Key, key) {
+			return !p.Delete
+		}
+	}
 	return st.tree.Has(key)
 }
 
