@@ -359,9 +359,10 @@ func (app *BaseApp) CheckTx(req *abci.RequestCheckTx) (*abci.ResponseCheckTxV2, 
 		Data:      result.Data,
 		Events:    sdk.MarkEventsToIndex(result.Events, app.indexEvents),
 	},
-		EVMNonce:         txCtx.EVMNonce(),
-		EVMSenderAddress: txCtx.EVMSenderAddress(),
-		IsEVM:            txCtx.IsEVM(),
+		IsPendingTransaction: txCtx.IsPendingTransaction(),
+		EVMNonce:             txCtx.EVMNonce(),
+		EVMSenderAddress:     txCtx.EVMSenderAddress(),
+		IsEVM:                txCtx.IsEVM(),
 	}, nil
 }
 

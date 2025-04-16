@@ -72,6 +72,9 @@ func (p *EVMPreprocessDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate
 	if err != nil {
 		return ctx, err
 	}
+	//if txData.GetTo() != nil {
+	//	ctx.Logger().Info("AnteHandle to address", "to address", txData.GetTo().Hex())
+	//}
 
 	if err := Preprocess(ctx, msg, txData); err != nil {
 		return ctx, err
@@ -213,15 +216,17 @@ func (fc *EVMPreprocessDecorator) AnteHandleFee(ctx sdk.Context, simulate bool, 
 
 	balance := fc.evmKeeper.BankKeeper().GetBalance(ctx, sdk.AccAddress(msg.Derived.SenderEVMAddr[:]), fc.evmKeeper.GetBaseDenom(ctx))
 	if balance.Amount.IsZero() {
-		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, "account needs to have enough balance to cover the transaction fees")
+		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, "account "+msg.Derived.SenderEVMAddr.Hex()+"needs to have enough balance to cover the transaction fees")
 	}
 	mgval := new(big.Int).SetUint64(etx.Gas())
 	mgval.Mul(mgval, etx.GasPrice())
 	if balance.Amount.LT(cosmath.NewIntFromBigInt(mgval)) {
-		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, "account needs to have enough balance to cover the transaction fees")
+		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, "account "+msg.Derived.SenderEVMAddr.Hex()+" needs to have enough balance to cover the transaction fees")
 	}
-	balance.Amount = balance.Amount.Sub(cosmath.NewIntFromBigInt(mgval))
-	fc.evmKeeper.BankKeeper().SetBalance(ctx, msg.Derived.SenderEVMAddr[:], balance)
+	if !(ctx.IsCheckTx() && ctx.IsFastMempool()) {
+		balance.Amount = balance.Amount.Sub(cosmath.NewIntFromBigInt(mgval))
+		fc.evmKeeper.BankKeeper().SetBalance(ctx, msg.Derived.SenderEVMAddr[:], balance)
+	}
 	return ctx, nil
 
 	// check if the sender has enough balance to cover fees
@@ -276,6 +281,7 @@ func (svd *EVMPreprocessDecorator) AnteHandleSig(ctx sdk.Context, simulate bool,
 	evmAddr := msg.Derived.SenderEVMAddr
 	nextNonce := svd.evmKeeper.GetNonce(ctx, evmAddr)
 	txNonce := ethTx.Nonce()
+	isFastMempool := ctx.IsFastMempool()
 
 	// set EVM properties
 	ctx = ctx.WithIsEVM(true)
@@ -303,8 +309,18 @@ func (svd *EVMPreprocessDecorator) AnteHandleSig(ctx sdk.Context, simulate bool,
 	}
 
 	if ctx.IsCheckTx() {
+
 		if txNonce < nextNonce {
+			ctx.Logger().Info("An unexpected error occurs", sdkTypeerr.ErrWrongSequence.Error())
 			return ctx, sdkTypeerr.ErrWrongSequence
+		}
+		if isFastMempool {
+			if txNonce == nextNonce {
+				ctx = ctx.WithIsPendingTx(false)
+			} else {
+				ctx = ctx.WithIsPendingTx(true)
+			}
+			return ctx, nil
 		}
 		ctx = ctx.WithCheckTxCallback(func(thenCtx sdk.Context, e error) {
 			if e != nil {
@@ -346,7 +362,7 @@ func (svd *EVMPreprocessDecorator) AnteHandleSig(ctx sdk.Context, simulate bool,
 				return abci.Pending
 			})
 		}
-	} else if txNonce != nextNonce {
+	} else if txNonce != nextNonce && !isFastMempool {
 		return ctx, sdkTypeerr.ErrWrongSequence
 	}
 

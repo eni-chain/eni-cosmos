@@ -863,7 +863,8 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 	// determined by the GasMeter. We need access to the context to get the gas
 	// meter, so we initialize upfront.
 	var gasWanted uint64
-
+	fastFlag := true
+	ctx = ctx.WithIsFastMempool(fastFlag)
 	ms := ctx.MultiStore()
 
 	//startTime := time.Now()
@@ -935,11 +936,11 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 		// NOTE: Alternatively, we could require that AnteHandler ensures that
 		// writes do not happen if aborted/failed.  This may have some
 		// performance benefits, but it'll be more difficult to get right.
-		//if mode != execModeFinalize {
-		anteCtx, msCache = app.cacheTxContext(ctx, txBytes)
-		//} else {
-		//	anteCtx = ctx.WithTxBytes(txBytes)
-		//}
+		if mode == execModeCheck && fastFlag {
+			anteCtx = ctx.WithTxBytes(txBytes)
+		} else {
+			anteCtx, msCache = app.cacheTxContext(ctx, txBytes)
+		}
 		anteCtx = anteCtx.WithEventManager(sdk.NewEventManager())
 		newCtx, err := app.anteHandler(anteCtx, tx, mode == execModeSimulate)
 
@@ -967,11 +968,11 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 			}
 			return gInfo, nil, nil, ctx, err
 		}
-		//start3Time = time.Now()
-		//if mode != execModeFinalize {
-		msCache.Write()
-		//}
 
+		if !(mode == execModeCheck && fastFlag) {
+			msCache.Write()
+		}
+		//app.logger.Info("runtx ", "elapsed time", time.Since(startTime).Microseconds())
 		anteEvents = events.ToABCIEvents()
 	}
 
@@ -990,7 +991,14 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 	// Create a new Context based off of the existing Context with a MultiStore branch
 	// in case message processing fails. At this point, the MultiStore
 	// is a branch of a branch.
-	runMsgCtx, msCache := app.cacheTxContext(ctx, txBytes)
+	var (
+		runMsgCtx sdk.Context
+		msCache   storetypes.CacheMultiStore
+	)
+
+	if !(mode == execModeCheck && fastFlag) {
+		runMsgCtx, msCache = app.cacheTxContext(ctx, txBytes)
+	}
 	// Attempt to execute all messages and only update state if all messages pass
 	// and we're in DeliverTx. Note, runMsgs will never return a reference to a
 	// Result if any single message fails or does not have a registered Handler.
