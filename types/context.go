@@ -83,7 +83,9 @@ type Context struct {
 	evmVmError                          string // EVM VM error during execution
 	evmEntryViaWasmdPrecompile          bool   // EVM is entered via wasmd precompile directly
 	evmPrecompileCalledFromDelegateCall bool   // EVM precompile is called from a delegate call
+	isPendingTransaction                bool
 
+	isFastMempool    bool
 	traceSpanContext context.Context
 }
 
@@ -103,6 +105,7 @@ func (c Context) GasMeter() storetypes.GasMeter                 { return c.gasMe
 func (c Context) BlockGasMeter() storetypes.GasMeter            { return c.blockGasMeter }
 func (c Context) IsCheckTx() bool                               { return c.checkTx }
 func (c Context) IsReCheckTx() bool                             { return c.recheckTx }
+func (c Context) IsPendingTransaction() bool                    { return c.isPendingTransaction }
 func (c Context) IsSigverifyTx() bool                           { return c.sigverifyTx }
 func (c Context) ExecMode() ExecMode                            { return c.execMode }
 func (c Context) MinGasPrices() DecCoins                        { return c.minGasPrice }
@@ -121,6 +124,7 @@ func (c Context) CheckTxCallback() func(Context, error)         { return c.check
 func (c Context) ExpireTxHandler() func()                       { return c.expireTxHandler }
 func (c Context) IsParallelTx() bool                            { return c.isParallelExec }
 func (c Context) IsSimpleDag() bool                             { return c.isSimpleDag }
+func (c Context) IsFastMempool() bool                           { return c.isFastMempool }
 
 // Getters
 func (c Context) IsEVM() bool {
@@ -154,6 +158,16 @@ func (c Context) EVMPrecompileCalledFromDelegateCall() bool {
 // Setters
 func (c Context) WithIsEVM(evm bool) Context {
 	c.isEvm = evm
+	return c
+}
+
+func (c Context) WithIsPendingTx(is bool) Context {
+	c.isPendingTransaction = is
+	return c
+}
+
+func (c Context) WithIsFastMempool(is bool) Context {
+	c.isFastMempool = is
 	return c
 }
 

@@ -2,80 +2,57 @@ package multiversion
 
 import (
 	"bytes"
-	"sort"
-	"sync"
-
 	"cosmossdk.io/store/multiversion/occ"
+	"github.com/puzpuzpuz/xsync/v4"
+
+	"sort"
+
 	"cosmossdk.io/store/types"
 	db "github.com/cometbft/cometbft-db"
 )
 
-type MultiVersionStore interface {
-	GetLatest(key []byte) (value MultiVersionValueItem)
-	GetLatestBeforeIndex(index int, key []byte) (value MultiVersionValueItem)
-	Has(index int, key []byte) bool
-	WriteLatestToStore()
-	SetWriteset(index int, incarnation int, writeset WriteSet)
-	InvalidateWriteset(index int, incarnation int)
-	SetEstimatedWriteset(index int, incarnation int, writeset WriteSet)
-	GetAllWritesetKeys() map[int][]string
-	CollectIteratorItems(index int) *db.MemDB
-	SetReadset(index int, readset ReadSet)
-	GetReadset(index int) ReadSet
-	ClearReadset(index int)
-	VersionedIndexedStore(index int, incarnation int, abortChannel chan occ.Abort) *VersionIndexedStore
-	SetIterateset(index int, iterateset Iterateset)
-	GetIterateset(index int) Iterateset
-	ClearIterateset(index int)
-	ValidateTransactionState(index int) (bool, []int)
-}
+var _ MultiVersionStore = (*XSyncStore)(nil)
 
-type WriteSet map[string][]byte
-type ReadSet map[string][][]byte
-type Iterateset []*iterationTracker
-
-var _ MultiVersionStore = (*Store)(nil)
-
-type Store struct {
+type XSyncStore struct {
 	// map that stores the key string -> MultiVersionValue mapping for accessing from a given key
-	multiVersionMap *sync.Map
+	multiVersionMap *xsync.Map[string, *multiVersionItem]
 	// TODO: do we need to support iterators as well similar to how cachekv does it - yes
 
-	txWritesetKeys *sync.Map // map of tx index -> writeset keys []string
-	txReadSets     *sync.Map // map of tx index -> readset ReadSet
-	txIterateSets  *sync.Map // map of tx index -> iterateset Iterateset
+	txWritesetKeys *xsync.Map[int, []string]   // map of tx index -> writeset keys []string
+	txReadSets     *xsync.Map[int, ReadSet]    // map of tx index -> readset ReadSet
+	txIterateSets  *xsync.Map[int, Iterateset] // map of tx index -> iterateset Iterateset
 
 	parentStore types.KVStore
 }
 
-func NewMultiVersionStore(parentStore types.KVStore) *Store {
-	return &Store{
-		multiVersionMap: &sync.Map{},
-		txWritesetKeys:  &sync.Map{},
-		txReadSets:      &sync.Map{},
-		txIterateSets:   &sync.Map{},
+func NewMultiXSyncVersionStore(parentStore types.KVStore, txNum int) *XSyncStore {
+	multiVersionMap := xsync.NewMap[string, *multiVersionItem](xsync.WithPresize(txNum * 5))
+	txWritesetKeys := xsync.NewMap[int, []string](xsync.WithPresize(txNum + 100))
+	txReadSets := xsync.NewMap[int, ReadSet](xsync.WithPresize(txNum + 100))
+	txIterateSets := xsync.NewMap[int, Iterateset]()
+	return &XSyncStore{
+		multiVersionMap: multiVersionMap,
+		txWritesetKeys:  txWritesetKeys,
+		txReadSets:      txReadSets,
+		txIterateSets:   txIterateSets,
 		parentStore:     parentStore,
 	}
 }
 
-//func NewMultiVersionStore(parentStore types.KVStore) *XSyncStore {
-//	return NewMultiXSyncVersionStore(parentStore)
-//}
-
 // VersionedIndexedStore creates a new versioned index store for a given incarnation and transaction index
-func (s *Store) VersionedIndexedStore(index int, incarnation int, abortChannel chan occ.Abort) *VersionIndexedStore {
+func (s *XSyncStore) VersionedIndexedStore(index int, incarnation int, abortChannel chan occ.Abort) *VersionIndexedStore {
 	return NewVersionIndexedStore(s.parentStore, s, index, incarnation, abortChannel)
 }
 
 // GetLatest implements MultiVersionStore.
-func (s *Store) GetLatest(key []byte) (value MultiVersionValueItem) {
+func (s *XSyncStore) GetLatest(key []byte) (value MultiVersionValueItem) {
 	keyString := string(key)
 	mvVal, found := s.multiVersionMap.Load(keyString)
 	// if the key doesn't exist in the overall map, return nil
 	if !found {
 		return nil
 	}
-	latestVal, found := mvVal.(MultiVersionValue).GetLatest()
+	latestVal, found := mvVal.GetLatest()
 	if !found {
 		return nil // this is possible IF there is are writeset that are then removed for that key
 	}
@@ -83,14 +60,14 @@ func (s *Store) GetLatest(key []byte) (value MultiVersionValueItem) {
 }
 
 // GetLatestBeforeIndex implements MultiVersionStore.
-func (s *Store) GetLatestBeforeIndex(index int, key []byte) (value MultiVersionValueItem) {
+func (s *XSyncStore) GetLatestBeforeIndex(index int, key []byte) (value MultiVersionValueItem) {
 	keyString := string(key)
 	mvVal, found := s.multiVersionMap.Load(keyString)
 	// if the key doesn't exist in the overall map, return nil
 	if !found {
 		return nil
 	}
-	val, found := mvVal.(MultiVersionValue).GetLatestBeforeIndex(index)
+	val, found := mvVal.GetLatestBeforeIndex(index)
 	// otherwise, we may have found a value for that key, but its not written before the index passed in
 	if !found {
 		return nil
@@ -100,7 +77,7 @@ func (s *Store) GetLatestBeforeIndex(index int, key []byte) (value MultiVersionV
 }
 
 // Has implements MultiVersionStore. It checks if the key exists in the multiversion store at or before the specified index.
-func (s *Store) Has(index int, key []byte) bool {
+func (s *XSyncStore) Has(index int, key []byte) bool {
 
 	keyString := string(key)
 	mvVal, found := s.multiVersionMap.Load(keyString)
@@ -108,20 +85,19 @@ func (s *Store) Has(index int, key []byte) bool {
 	if !found {
 		return false // this is okay because the caller of this will THEN need to access the parent store to verify that the key doesnt exist there
 	}
-	_, foundVal := mvVal.(MultiVersionValue).GetLatestBeforeIndex(index)
+	_, foundVal := mvVal.GetLatestBeforeIndex(index)
 	return foundVal
 }
 
-func (s *Store) removeOldWriteset(index int, newWriteSet WriteSet) {
+func (s *XSyncStore) removeOldWriteset(index int, newWriteSet WriteSet) {
 	writeset := make(map[string][]byte)
 	if newWriteSet != nil {
 		// if non-nil writeset passed in, we can use that to optimize removals
 		writeset = newWriteSet
 	}
 	// if there is already a writeset existing, we should remove that fully
-	oldKeys, loaded := s.txWritesetKeys.LoadAndDelete(index)
+	keys, loaded := s.txWritesetKeys.LoadAndDelete(index)
 	if loaded {
-		keys := oldKeys.([]string)
 		// we need to delete all of the keys in the writeset from the multiversion store
 		for _, key := range keys {
 			// small optimization to check if the new writeset is going to write this key, if so, we can leave it behind
@@ -135,14 +111,14 @@ func (s *Store) removeOldWriteset(index int, newWriteSet WriteSet) {
 			if !found {
 				continue
 			}
-			mvVal.(MultiVersionValue).Remove(index)
+			mvVal.Remove(index)
 		}
 	}
 }
 
 // SetWriteset sets a writeset for a transaction index, and also writes all of the multiversion items in the writeset to the multiversion store.
 // TODO: returns a list of NEW keys added
-func (s *Store) SetWriteset(index int, incarnation int, writeset WriteSet) {
+func (s *XSyncStore) SetWriteset(index int, incarnation int, writeset WriteSet) {
 	// TODO: add telemetry spans
 	// remove old writeset if it exists
 	s.removeOldWriteset(index, writeset)
@@ -151,13 +127,13 @@ func (s *Store) SetWriteset(index int, incarnation int, writeset WriteSet) {
 	for key, value := range writeset {
 		writeSetKeys = append(writeSetKeys, key)
 		loadVal, _ := s.multiVersionMap.LoadOrStore(key, NewMultiVersionItem()) // init if necessary
-		mvVal := loadVal.(MultiVersionValue)
+		//mvVal := loadVal.(MultiVersionValue)
 		if value == nil {
 			// delete if nil value
 			// TODO: sync map
-			mvVal.Delete(index, incarnation)
+			loadVal.Delete(index, incarnation)
 		} else {
-			mvVal.Set(index, incarnation, value)
+			loadVal.Set(index, incarnation, value)
 		}
 	}
 	sort.Strings(writeSetKeys) // TODO: if we're sorting here anyways, maybe we just put it into a btree instead of a slice
@@ -165,22 +141,22 @@ func (s *Store) SetWriteset(index int, incarnation int, writeset WriteSet) {
 }
 
 // InvalidateWriteset iterates over the keys for the given index and incarnation writeset and replaces with ESTIMATEs
-func (s *Store) InvalidateWriteset(index int, incarnation int) {
-	keysAny, found := s.txWritesetKeys.Load(index)
+func (s *XSyncStore) InvalidateWriteset(index int, incarnation int) {
+	keys, found := s.txWritesetKeys.Load(index)
 	if !found {
 		return
 	}
-	keys := keysAny.([]string)
+	//keys := keysAny.([]string)
 	for _, key := range keys {
 		// invalidate all of the writeset items - is this suboptimal? - we could potentially do concurrently if slow because locking is on an item specific level
 		val, _ := s.multiVersionMap.LoadOrStore(key, NewMultiVersionItem())
-		val.(MultiVersionValue).SetEstimate(index, incarnation)
+		val.SetEstimate(index, incarnation)
 	}
 	// we leave the writeset in place because we'll need it for key removal later if/when we replace with a new writeset
 }
 
 // SetEstimatedWriteset is used to directly write estimates instead of writing a writeset and later invalidating
-func (s *Store) SetEstimatedWriteset(index int, incarnation int, writeset WriteSet) {
+func (s *XSyncStore) SetEstimatedWriteset(index int, incarnation int, writeset WriteSet) {
 	// remove old writeset if it exists
 	s.removeOldWriteset(index, writeset)
 
@@ -190,60 +166,58 @@ func (s *Store) SetEstimatedWriteset(index int, incarnation int, writeset WriteS
 		writeSetKeys = append(writeSetKeys, key)
 
 		mvVal, _ := s.multiVersionMap.LoadOrStore(key, NewMultiVersionItem()) // init if necessary
-		mvVal.(MultiVersionValue).SetEstimate(index, incarnation)
+		mvVal.SetEstimate(index, incarnation)
 	}
 	sort.Strings(writeSetKeys)
 	s.txWritesetKeys.Store(index, writeSetKeys)
 }
 
 // GetAllWritesetKeys implements MultiVersionStore.
-func (s *Store) GetAllWritesetKeys() map[int][]string {
+func (s *XSyncStore) GetAllWritesetKeys() map[int][]string {
 	writesetKeys := make(map[int][]string)
 	// TODO: is this safe?
-	s.txWritesetKeys.Range(func(key, value interface{}) bool {
-		index := key.(int)
-		keys := value.([]string)
-		writesetKeys[index] = keys
+	s.txWritesetKeys.Range(func(index int, value []string) bool {
+		writesetKeys[index] = value
 		return true
 	})
 
 	return writesetKeys
 }
 
-func (s *Store) SetReadset(index int, readset ReadSet) {
+func (s *XSyncStore) SetReadset(index int, readset ReadSet) {
 	s.txReadSets.Store(index, readset)
 }
 
-func (s *Store) GetReadset(index int) ReadSet {
+func (s *XSyncStore) GetReadset(index int) ReadSet {
 	readsetAny, found := s.txReadSets.Load(index)
 	if !found {
 		return nil
 	}
-	return readsetAny.(ReadSet)
+	return readsetAny
 }
 
-func (s *Store) SetIterateset(index int, iterateset Iterateset) {
+func (s *XSyncStore) SetIterateset(index int, iterateset Iterateset) {
 	s.txIterateSets.Store(index, iterateset)
 }
 
-func (s *Store) GetIterateset(index int) Iterateset {
+func (s *XSyncStore) GetIterateset(index int) Iterateset {
 	iteratesetAny, found := s.txIterateSets.Load(index)
 	if !found {
 		return nil
 	}
-	return iteratesetAny.(Iterateset)
+	return iteratesetAny
 }
 
-func (s *Store) ClearReadset(index int) {
+func (s *XSyncStore) ClearReadset(index int) {
 	s.txReadSets.Delete(index)
 }
 
-func (s *Store) ClearIterateset(index int) {
+func (s *XSyncStore) ClearIterateset(index int) {
 	s.txIterateSets.Delete(index)
 }
 
 // CollectIteratorItems implements MultiVersionStore. It will return a memDB containing all of the keys present in the multiversion store within the iteration range prior to (exclusive of) the index.
-func (s *Store) CollectIteratorItems(index int) *db.MemDB {
+func (s *XSyncStore) CollectIteratorItems(index int) *db.MemDB {
 	sortedItems := db.NewMemDB()
 
 	// get all writeset keys prior to index
@@ -252,9 +226,9 @@ func (s *Store) CollectIteratorItems(index int) *db.MemDB {
 		if !found {
 			continue
 		}
-		indexedWriteset := writesetAny.([]string)
+		//indexedWriteset := writesetAny.([]string)
 		// TODO: do we want to exclude keys out of the range or just let the iterator handle it?
-		for _, key := range indexedWriteset {
+		for _, key := range writesetAny {
 			// TODO: inefficient because (logn) for each key + rebalancing? maybe theres a better way to add to a tree to reduce rebalancing overhead
 			sortedItems.Set([]byte(key), []byte{})
 		}
@@ -262,7 +236,7 @@ func (s *Store) CollectIteratorItems(index int) *db.MemDB {
 	return sortedItems
 }
 
-func (s *Store) validateIterator(index int, tracker iterationTracker) bool {
+func (s *XSyncStore) validateIterator(index int, tracker iterationTracker) bool {
 	// collect items from multiversion store
 	sortedItems := s.CollectIteratorItems(index)
 	// add the iterationtracker writeset keys to the sorted items
@@ -320,13 +294,13 @@ func (s *Store) validateIterator(index int, tracker iterationTracker) bool {
 	}
 }
 
-func (s *Store) checkIteratorAtIndex(index int) bool {
+func (s *XSyncStore) checkIteratorAtIndex(index int) bool {
 	valid := true
-	iterateSetAny, found := s.txIterateSets.Load(index)
+	iterateset, found := s.txIterateSets.Load(index)
 	if !found {
 		return true
 	}
-	iterateset := iterateSetAny.(Iterateset)
+	//iterateset := iterateSetAny.(Iterateset)
 	for _, iterationTracker := range iterateset {
 		// TODO: if the value of the key is nil maybe we need to exclude it? - actually it should
 		iteratorValid := s.validateIterator(index, *iterationTracker)
@@ -335,15 +309,15 @@ func (s *Store) checkIteratorAtIndex(index int) bool {
 	return valid
 }
 
-func (s *Store) checkReadsetAtIndex(index int) (bool, []int) {
+func (s *XSyncStore) checkReadsetAtIndex(index int) (bool, []int) {
 	conflictSet := make(map[int]struct{})
 	valid := true
 
-	readSetAny, found := s.txReadSets.Load(index)
+	readset, found := s.txReadSets.Load(index)
 	if !found {
 		return true, []int{}
 	}
-	readset := readSetAny.(ReadSet)
+	//readset := readSetAny.(ReadSet)
 	// iterate over readset and check if the value is the same as the latest value relateive to txIndex in the multiversion store
 	for key, valueArr := range readset {
 		if len(valueArr) != 1 {
@@ -388,7 +362,7 @@ func (s *Store) checkReadsetAtIndex(index int) (bool, []int) {
 }
 
 // TODO: do we want to return bool + []int where bool indicates whether it was valid and then []int indicates only ones for which we need to wait due to estimates? - yes i think so?
-func (s *Store) ValidateTransactionState(index int) (bool, []int) {
+func (s *XSyncStore) ValidateTransactionState(index int) (bool, []int) {
 	// defer telemetry.MeasureSince(time.Now(), "store", "mvs", "validate")
 
 	// TODO: can we parallelize for all iterators?
@@ -399,11 +373,11 @@ func (s *Store) ValidateTransactionState(index int) (bool, []int) {
 	return iteratorValid && readsetValid, conflictIndices
 }
 
-func (s *Store) WriteLatestToStore() {
+func (s *XSyncStore) WriteLatestToStore() {
 	// sort the keys
 	keys := []string{}
-	s.multiVersionMap.Range(func(key, value interface{}) bool {
-		keys = append(keys, key.(string))
+	s.multiVersionMap.Range(func(key string, value *multiVersionItem) bool {
+		keys = append(keys, key)
 		return true
 	})
 	sort.Strings(keys)
@@ -413,7 +387,7 @@ func (s *Store) WriteLatestToStore() {
 		if !ok {
 			continue
 		}
-		mvValue, found := val.(MultiVersionValue).GetLatestNonEstimate()
+		mvValue, found := val.GetLatestNonEstimate()
 		if !found {
 			// this means that at some point, there was an estimate, but we have since removed it so there isn't anything writeable at the key, so we can skip
 			continue
@@ -434,5 +408,39 @@ func (s *Store) WriteLatestToStore() {
 		if mvValue.Value() != nil {
 			s.parentStore.Set([]byte(key), mvValue.Value())
 		}
+	}
+}
+
+func (store *XSyncStore) newMVSValidationIterator(
+	index int,
+	start, end []byte,
+	items *db.MemDB,
+	ascending bool,
+	writeset WriteSet,
+	abortChannel chan occ.Abort,
+) *validationIterator {
+	var iter types.Iterator
+	var err error
+
+	if ascending {
+		iter, err = items.Iterator(start, end)
+	} else {
+		iter, err = items.ReverseIterator(start, end)
+	}
+
+	if err != nil {
+		if iter != nil {
+			iter.Close()
+		}
+		panic(err)
+	}
+
+	return &validationIterator{
+		Iterator:     iter,
+		mvStore:      store,
+		index:        index,
+		abortChannel: abortChannel,
+		writeset:     writeset,
+		readCache:    make(map[string][]byte),
 	}
 }

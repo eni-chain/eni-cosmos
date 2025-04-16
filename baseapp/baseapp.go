@@ -201,6 +201,7 @@ type BaseApp struct {
 
 	// enableParallelTxExecution will enable parallel transaction execution if true.
 	enableParallelTxExecution bool
+	enableSimpleDag           bool
 
 	TracingInfo    *tracing.Info
 	TracingEnabled bool
@@ -862,9 +863,11 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 	// determined by the GasMeter. We need access to the context to get the gas
 	// meter, so we initialize upfront.
 	var gasWanted uint64
-
+	fastFlag := true
+	ctx = ctx.WithIsFastMempool(fastFlag)
 	ms := ctx.MultiStore()
 
+	//startTime := time.Now()
 	// only run the tx if there is block gas remaining
 	if mode == execModeFinalize && ctx.BlockGasMeter().IsOutOfGas() {
 		return gInfo, nil, nil, ctx, errorsmod.Wrap(sdkerrors.ErrOutOfGas, "no block gas left to run tx")
@@ -920,7 +923,6 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 			return sdk.GasInfo{}, nil, nil, ctx, errorsmod.Wrapf(sdkerrors.ErrUnknownRequest, "no message handler found for %T", msg)
 		}
 	}
-
 	if app.anteHandler != nil {
 		var (
 			anteCtx sdk.Context
@@ -934,11 +936,11 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 		// NOTE: Alternatively, we could require that AnteHandler ensures that
 		// writes do not happen if aborted/failed.  This may have some
 		// performance benefits, but it'll be more difficult to get right.
-		//if mode != execModeFinalize {
-		anteCtx, msCache = app.cacheTxContext(ctx, txBytes)
-		//} else {
-		//	anteCtx = ctx.WithTxBytes(txBytes)
-		//}
+		if mode == execModeCheck && fastFlag {
+			anteCtx = ctx.WithTxBytes(txBytes)
+		} else {
+			anteCtx, msCache = app.cacheTxContext(ctx, txBytes)
+		}
 		anteCtx = anteCtx.WithEventManager(sdk.NewEventManager())
 		newCtx, err := app.anteHandler(anteCtx, tx, mode == execModeSimulate)
 
@@ -967,10 +969,10 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 			return gInfo, nil, nil, ctx, err
 		}
 
-		//if mode != execModeFinalize {
-		msCache.Write()
-		//}
-
+		if !(mode == execModeCheck && fastFlag) {
+			msCache.Write()
+		}
+		//app.logger.Info("runtx ", "elapsed time", time.Since(startTime).Microseconds())
 		anteEvents = events.ToABCIEvents()
 	}
 
@@ -986,12 +988,17 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 				fmt.Errorf("failed to remove tx from mempool: %w", err)
 		}
 	}
-
 	// Create a new Context based off of the existing Context with a MultiStore branch
 	// in case message processing fails. At this point, the MultiStore
 	// is a branch of a branch.
-	runMsgCtx, msCache := app.cacheTxContext(ctx, txBytes)
+	var (
+		runMsgCtx sdk.Context
+		msCache   storetypes.CacheMultiStore
+	)
 
+	if !(mode == execModeCheck && fastFlag) {
+		runMsgCtx, msCache = app.cacheTxContext(ctx, txBytes)
+	}
 	// Attempt to execute all messages and only update state if all messages pass
 	// and we're in DeliverTx. Note, runMsgs will never return a reference to a
 	// Result if any single message fails or does not have a registered Handler.
@@ -999,7 +1006,7 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 	if err == nil {
 		result, err = app.runMsgs(runMsgCtx, msgs, msgsV2, mode)
 	}
-
+	//start6Time := time.Now()
 	// Run optional postHandlers (should run regardless of the execution result).
 	//
 	// Note: If the postHandler fails, we also revert the runMsgs state.
@@ -1034,7 +1041,17 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 			result.Events = append(anteEvents, result.Events...)
 		}
 	}
-
+	if mode == execModeFinalize {
+		//all := time.Since(startTime).Microseconds()
+		//anteBefore := time.Since(start2Time).Microseconds()
+		//anteAfter := time.Since(start3Time).Microseconds()
+		//wCatch := time.Since(start4Time).Microseconds()
+		//cCatch := time.Since(start5Time).Microseconds()
+		//runMsg := time.Since(start6Time).Microseconds()
+		//app.logger.Info("runtx ========", "runtx elapsed time", all, "ante before",
+		//	all-anteBefore, "ante elapsed time", anteBefore-anteAfter, "write cache", anteAfter-wCatch,
+		//	"create cache", wCatch-cCatch, "run msg", cCatch-runMsg)
+	}
 	return gInfo, result, anteEvents, ctx, err
 }
 
@@ -1052,18 +1069,15 @@ func (app *BaseApp) runMsgs(ctx sdk.Context, msgs []sdk.Msg, msgsV2 []protov2.Me
 		if mode != execModeFinalize && mode != execModeSimulate {
 			break
 		}
-
 		handler := app.msgServiceRouter.Handler(msg)
 		if handler == nil {
 			return nil, errorsmod.Wrapf(sdkerrors.ErrUnknownRequest, "no message handler found for %T", msg)
 		}
-
 		// ADR 031 request type routing
 		msgResult, err := handler(ctx, msg)
 		if err != nil {
 			return nil, errorsmod.Wrapf(err, "failed to execute message; message index: %d", i)
 		}
-
 		// create message events
 		msgEvents, err := createEvents(app.cdc, msgResult.GetEvents(), msg, msgsV2[i])
 		if err != nil {
@@ -1100,7 +1114,6 @@ func (app *BaseApp) runMsgs(ctx sdk.Context, msgs []sdk.Msg, msgsV2 []protov2.Me
 	if err != nil {
 		return nil, errorsmod.Wrap(err, "failed to marshal tx data")
 	}
-
 	return &sdk.Result{
 		Data:         data,
 		Events:       events.ToABCIEvents(),
@@ -1229,7 +1242,6 @@ func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req *sdk.DeliverTxBatchReque
 }
 
 func (app *BaseApp) execTx(ctx sdk.Context, txs [][]byte, SimpleDag []int64) []*abci.ExecTxResult {
-	app.enableParallelTxExecution = true // todo: enable parallel tx execution
 	if ctx.IsParallelTx() {
 		var txRes []*abci.ExecTxResult
 		//if len(req.AssociateTxs) != 0 {

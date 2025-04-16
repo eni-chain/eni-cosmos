@@ -359,9 +359,10 @@ func (app *BaseApp) CheckTx(req *abci.RequestCheckTx) (*abci.ResponseCheckTxV2, 
 		Data:      result.Data,
 		Events:    sdk.MarkEventsToIndex(result.Events, app.indexEvents),
 	},
-		EVMNonce:         txCtx.EVMNonce(),
-		EVMSenderAddress: txCtx.EVMSenderAddress(),
-		IsEVM:            txCtx.IsEVM(),
+		IsPendingTransaction: txCtx.IsPendingTransaction(),
+		EVMNonce:             txCtx.EVMNonce(),
+		EVMSenderAddress:     txCtx.EVMSenderAddress(),
+		IsEVM:                txCtx.IsEVM(),
 	}, nil
 }
 
@@ -389,7 +390,7 @@ func (app *BaseApp) PrepareProposal(req *abci.RequestPrepareProposal) (resp *abc
 		return nil, err
 	}
 	app.logger.Info("build simple group", "spend time", time.Since(buildGroupStart).Milliseconds(), "txs", len(simpleGroup.txs))
-	req.Txs = simpleGroup.txs
+	req.Txs = simpleGroup.GetTxs()
 	req.SimpleDag = simpleGroup.GetDag()
 	//log spend time
 	start := time.Now()
@@ -766,6 +767,8 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	//}
 
 	// Context is now updated with Header information.
+	app.enableParallelTxExecution = true // todo: enable parallel tx execution
+	app.enableSimpleDag = true           // todo: enable simple dag
 	app.finalizeBlockState.SetContext(app.finalizeBlockState.Context().
 		WithBlockHeader(header).
 		WithHeaderHash(req.Hash).
@@ -785,7 +788,9 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 			ProposerAddress: req.ProposerAddress,
 			LastCommit:      req.DecidedLastCommit,
 		}).
-		WithParallelExec(app.enableParallelTxExecution))
+		WithParallelExec(app.enableParallelTxExecution).
+		WithSimpleDag(app.enableSimpleDag),
+	)
 
 	// GasMeter must be set after we get a context with updated consensus params.
 	gasMeter := app.getBlockGasMeter(app.finalizeBlockState.Context())

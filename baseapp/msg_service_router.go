@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	storetypes "cosmossdk.io/store/types"
 	gogogrpc "github.com/cosmos/gogoproto/grpc"
 	"github.com/cosmos/gogoproto/proto"
 	"google.golang.org/grpc"
@@ -181,22 +180,22 @@ func (msr *MsgServiceRouter) registerMsgServiceHandler(sd *grpc.ServiceDesc, met
 				return nil, err
 			}
 		}
-
-		if msr.circuitBreaker != nil {
-			msgURL := sdk.MsgTypeURL(msg)
-			// Devin: We temporarily replace the gas meter with an infinite one to avoid gas consumption
-			originalGasMeter := ctx.GasMeter()
-			ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
-			isAllowed, err := msr.circuitBreaker.IsAllowed(ctx, msgURL)
-			ctx = ctx.WithGasMeter(originalGasMeter)
-			if err != nil {
-				return nil, err
-			}
-
-			if !isAllowed {
-				return nil, fmt.Errorf("circuit breaker disables execution of this message: %s", msgURL)
-			}
-		}
+		// TODO Ignore for now
+		//if msr.circuitBreaker != nil {
+		//	msgURL := sdk.MsgTypeURL(msg)
+		//	// Devin: We temporarily replace the gas meter with an infinite one to avoid gas consumption
+		//	originalGasMeter := ctx.GasMeter()
+		//	ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
+		//	isAllowed, err := msr.circuitBreaker.IsAllowed(ctx, msgURL)
+		//	ctx = ctx.WithGasMeter(originalGasMeter)
+		//	if err != nil {
+		//		return nil, err
+		//	}
+		//
+		//	if !isAllowed {
+		//		return nil, fmt.Errorf("circuit breaker disables execution of this message: %s", msgURL)
+		//	}
+		//}
 
 		// Call the method handler from the service description with the handler object.
 		// We don't do any decoding here because the decoding was already done.

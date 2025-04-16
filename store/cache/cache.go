@@ -1,12 +1,10 @@
 package cache
 
 import (
-	"fmt"
-
-	lru "github.com/hashicorp/golang-lru"
-
 	"cosmossdk.io/store/cachekv"
 	"cosmossdk.io/store/types"
+	"fmt"
+	lru "github.com/hashicorp/golang-lru"
 )
 
 var (
@@ -101,6 +99,10 @@ func (ckv *CommitKVStoreCache) Get(key []byte) []byte {
 	types.AssertValidKey(key)
 
 	keyStr := string(key)
+	//if strings.HasSuffix(keyStr, "ueni") {
+	//	value, _ := hex.DecodeString("31303030303030303030303030303030303030")
+	//	return value
+	//}
 	valueI, ok := ckv.cache.Get(keyStr)
 	if ok {
 		// cache hit
