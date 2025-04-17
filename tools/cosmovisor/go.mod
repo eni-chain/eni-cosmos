@@ -6,7 +6,7 @@ require (
 	cosmossdk.io/log v1.4.1
 	cosmossdk.io/x/upgrade v0.0.0-20230614103911-b3da8bb4e801
 	github.com/otiai10/copy v1.11.0
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.9.0
 )
