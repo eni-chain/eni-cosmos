@@ -31,7 +31,6 @@ require (
 require (
 	cosmossdk.io/core v0.12.1-0.20240725072823-6a2d039e1212
 	github.com/cometbft/cometbft-db v1.0.4
-	github.com/eni-chain/eni-db v0.0.2-0.20250408030021-4b6939bccb70
 	github.com/google/btree v1.1.3
 	github.com/puzpuzpuz/xsync/v4 v4.0.0
 )
@@ -55,6 +54,7 @@ require (
 	github.com/dgraph-io/ristretto/v2 v2.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emicklei/dot v1.6.2 // indirect
+	github.com/eni-chain/eni-db v0.0.0-20250417072804-cd50b72160de // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/getsentry/sentry-go v0.31.1 // indirect
 	github.com/gogo/protobuf v1.3.3 // indirect
