@@ -1,38 +1,32 @@
 module cosmossdk.io/store
 
-go 1.24
-
-toolchain go1.24.0
+go 1.24.2
 
 require (
+	cosmossdk.io/core v0.12.1-0.20240725072823-6a2d039e1212
 	cosmossdk.io/errors v1.0.0
 	cosmossdk.io/log v1.4.1
 	cosmossdk.io/math v1.3.0
 	github.com/cometbft/cometbft v0.38.12
+	github.com/cometbft/cometbft-db v1.0.4
 	github.com/cosmos/cosmos-db v1.0.2
 	github.com/cosmos/gogoproto v1.7.0
 	github.com/cosmos/iavl v1.3.5
 	github.com/cosmos/ics23/go v0.11.0
+	github.com/eni-chain/eni-db v0.0.0-20250417072804-cd50b72160de
 	github.com/golang/mock v1.6.0
-	github.com/golang/protobuf v1.5.4 // indirect
+	github.com/google/btree v1.1.3
 	github.com/hashicorp/go-hclog v1.5.0
 	github.com/hashicorp/go-metrics v0.5.1
 	github.com/hashicorp/go-plugin v1.5.2
 	github.com/hashicorp/golang-lru v1.0.2
-	github.com/spf13/cast v1.6.0 // indirect
+	github.com/puzpuzpuz/xsync/v4 v4.0.0
 	github.com/stretchr/testify v1.10.0
 	github.com/tidwall/btree v1.7.0
 	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
 	google.golang.org/grpc v1.64.1
 	google.golang.org/protobuf v1.36.4
 	gotest.tools/v3 v3.5.1
-)
-
-require (
-	cosmossdk.io/core v0.12.1-0.20240725072823-6a2d039e1212
-	github.com/cometbft/cometbft-db v1.0.4
-	github.com/google/btree v1.1.3
-	github.com/puzpuzpuz/xsync/v4 v4.0.0
 )
 
 require (
@@ -54,11 +48,11 @@ require (
 	github.com/dgraph-io/ristretto/v2 v2.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emicklei/dot v1.6.2 // indirect
-	github.com/eni-chain/eni-db v0.0.0-20250417072804-cd50b72160de // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/getsentry/sentry-go v0.31.1 // indirect
 	github.com/gogo/protobuf v1.3.3 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/flatbuffers v25.1.24+incompatible // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
@@ -90,6 +84,7 @@ require (
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/rs/zerolog v1.33.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
+	github.com/spf13/cast v1.6.0 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tidwall/gjson v1.10.2 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
