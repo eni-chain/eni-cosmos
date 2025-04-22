@@ -16,7 +16,6 @@ import (
 
 	coreheader "cosmossdk.io/core/header"
 	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/store/rootmulti"
 	snapshottypes "cosmossdk.io/store/snapshots/types"
 	storetypes "cosmossdk.io/store/types"
 
@@ -846,6 +845,14 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	if app.finalizeBlockState.ms.TracingEnabled() {
 		app.finalizeBlockState.ms = app.finalizeBlockState.ms.SetTracingContext(nil).(storetypes.CacheMultiStore)
 	}
+
+	if app.evmMsgsHandler != nil {
+		app.evmMsgsHandler(req.Txs)
+	}
+	if app.evmResultsHandler != nil {
+		app.evmResultsHandler(txResults)
+	}
+
 	startEndBlock := time.Now()
 	endBlock, err := app.endBlock(app.finalizeBlockState.Context())
 	endEndBlock := time.Now()
@@ -975,11 +982,6 @@ func (app *BaseApp) Commit() (*abci.ResponseCommit, error) {
 
 	if app.precommiter != nil {
 		app.precommiter(app.finalizeBlockState.Context())
-	}
-
-	rms, ok := app.cms.(*rootmulti.Store)
-	if ok {
-		rms.SetCommitHeader(header)
 	}
 
 	app.cms.Commit()
@@ -1233,7 +1235,7 @@ func checkNegativeHeight(height int64) error {
 	return nil
 }
 
-// createQueryContext creates a new sdk.Context for a query, taking as args
+// CreateQueryContext creates a new sdk.Context for a query, taking as args
 // the block height and whether the query needs a proof or not.
 func (app *BaseApp) CreateQueryContext(height int64, prove bool) (sdk.Context, error) {
 	if err := checkNegativeHeight(height); err != nil {
@@ -1288,16 +1290,6 @@ func (app *BaseApp) CreateQueryContext(height int64, prove bool) (sdk.Context, e
 		WithGasMeter(storetypes.NewGasMeter(app.queryGasLimit)).
 		WithBlockHeader(header).
 		WithBlockHeight(height)
-
-	if height != lastBlockHeight {
-		rms, ok := app.cms.(*rootmulti.Store)
-		if ok {
-			cInfo, err := rms.GetCommitInfo(height)
-			if cInfo != nil && err == nil {
-				ctx = ctx.WithBlockTime(cInfo.Timestamp)
-			}
-		}
-	}
 
 	return ctx, nil
 }

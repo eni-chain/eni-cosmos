@@ -2,9 +2,10 @@ package evm
 
 import (
 	"context"
-	modulev1 "cosmossdk.io/api/cosmos/evm/module"
 	"encoding/json"
 	"fmt"
+
+	modulev1 "cosmossdk.io/api/cosmos/evm/module"
 
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	"github.com/cosmos/cosmos-sdk/x/evm/exported"
@@ -176,10 +177,7 @@ func (am AppModule) BeginBlock(_ context.Context) error {
 // The end block implementation is optional.
 func (am AppModule) EndBlock(goCtx context.Context) error {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	//newBaseFee := am.keeper.AdjustDynamicBaseFeePerGas(ctx, uint64(req.BlockGasUsed))
-	//if newBaseFee != nil {
-	//	metrics.GaugeEvmBlockBaseFee(newBaseFee.TruncateInt().BigInt(), req.Height)
-	//}
+	_ = am.keeper.AdjustDynamicBaseFeePerGas(ctx, ctx.BlockGasMeter().GasConsumed())
 	var _ sdk.AccAddress // to avoid unused error
 	if am.keeper.EthBlockTestConfig.Enabled {
 		blocks := am.keeper.BlockTest.Json.Blocks

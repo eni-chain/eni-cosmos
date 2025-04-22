@@ -35,9 +35,9 @@ var DefaultPriorityNormalizer = math.LegacyNewDec(1)
 // DefaultBaseFeePerGas determines how much ueni per gas spent is
 // burnt rather than go to validators (similar to base fee on
 // Ethereum).
-var DefaultBaseFeePerGas = math.LegacyNewDec(0) // used for static base fee, deprecated in favor of dynamic base fee
-// var DefaultMinFeePerGas = math.LegacyNewDec(1000000000) // 1gwei
-var DefaultMinFeePerGas = math.LegacyNewDec(0)
+var DefaultBaseFeePerGas = math.LegacyNewDec(0)         // used for static base fee, deprecated in favor of dynamic base fee
+var DefaultMinFeePerGas = math.LegacyNewDec(1000000000) // 1gwei
+//var DefaultMinFeePerGas = math.LegacyNewDec(0)
 
 //var DefaultMaxDynamicBaseFeeUpwardAdjustment = math.LegacyNewDecWithPrec(189, 4)  // 1.89%
 //var DefaultMaxDynamicBaseFeeDownwardAdjustment = math.LegacyNewDecWithPrec(39, 4) // .39%

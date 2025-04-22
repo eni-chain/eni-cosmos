@@ -228,6 +228,22 @@ func (app *BaseApp) SetAnteHandler(ah sdk.AnteHandler) {
 	app.anteHandler = ah
 }
 
+func (app *BaseApp) SetEvmMsgsHandler(em sdk.EVMMsgsHandler) {
+	if app.sealed {
+		panic("SetEvmMsgsHandler() on sealed BaseApp")
+	}
+
+	app.evmMsgsHandler = em
+}
+
+func (app *BaseApp) SetEvmResultsHandler(er sdk.EVMResultsHandler) {
+	if app.sealed {
+		panic("SetEvmResultHandler() on sealed BaseApp")
+	}
+
+	app.evmResultsHandler = er
+}
+
 func (app *BaseApp) SetPostHandler(ph sdk.PostHandler) {
 	if app.sealed {
 		panic("SetPostHandler() on sealed BaseApp")

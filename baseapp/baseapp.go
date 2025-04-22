@@ -2,6 +2,15 @@ package baseapp
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
+	"math"
+	"runtime"
+	"sort"
+	"strconv"
+	"sync"
+	"time"
+
 	"cosmossdk.io/core/header"
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/log"
@@ -9,8 +18,6 @@ import (
 	storemetrics "cosmossdk.io/store/metrics"
 	"cosmossdk.io/store/snapshots"
 	storetypes "cosmossdk.io/store/types"
-	"crypto/sha256"
-	"fmt"
 	"github.com/cockroachdb/errors"
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/crypto/tmhash"
@@ -30,12 +37,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/exp/maps"
 	protov2 "google.golang.org/protobuf/proto"
-	"math"
-	"runtime"
-	"sort"
-	"strconv"
-	"sync"
-	"time"
 )
 
 type (
@@ -80,6 +81,9 @@ type BaseApp struct {
 	mempool     mempool.Mempool // application side mempool
 	anteHandler sdk.AnteHandler // ante handler for fee and auth
 	postHandler sdk.PostHandler // post handler, optional
+
+	evmMsgsHandler    sdk.EVMMsgsHandler    // handler for EVM messages
+	evmResultsHandler sdk.EVMResultsHandler // handler for EVM results
 
 	initChainer        sdk.InitChainer                // ABCI InitChain handler
 	preBlocker         sdk.PreBlocker                 // logic to run before BeginBlocker
