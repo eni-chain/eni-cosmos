@@ -1,6 +1,7 @@
 package ante
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -227,6 +228,19 @@ func (fc *EVMPreprocessDecorator) AnteHandleFee(ctx sdk.Context, simulate bool, 
 		balance.Amount = balance.Amount.Sub(cosmath.NewIntFromBigInt(mgval))
 		fc.evmKeeper.BankKeeper().SetBalance(ctx, msg.Derived.SenderEVMAddr[:], balance)
 	}
+	// Make sure this transaction's nonce is correct.
+	stNonce := fc.evmKeeper.GetNonce(ctx, msg.Derived.SenderEVMAddr)
+	if msgNonce := etx.Nonce(); stNonce < msgNonce {
+		return ctx, fmt.Errorf("%w: address %v, tx: %d state: %d", ErrNonceTooHigh,
+			msg.Derived.SenderEVMAddr.Hex(), msgNonce, stNonce)
+	} else if stNonce > msgNonce {
+		return ctx, fmt.Errorf("%w: address %v, tx: %d state: %d", ErrNonceTooLow,
+			msg.Derived.SenderEVMAddr.Hex(), msgNonce, stNonce)
+	} else if stNonce+1 < stNonce {
+		return ctx, fmt.Errorf("%w: address %v, nonce: %d", ErrNonceMax,
+			msg.Derived.SenderEVMAddr.Hex(), stNonce)
+	}
+
 	return ctx, nil
 
 	// check if the sender has enough balance to cover fees
@@ -275,6 +289,12 @@ func (fc *EVMPreprocessDecorator) AnteHandleFee(ctx sdk.Context, simulate bool, 
 	//
 	//return ctx, nil
 }
+
+var (
+	ErrNonceTooHigh = errors.New("nonce too high")
+	ErrNonceTooLow  = errors.New("nonce too low")
+	ErrNonceMax     = errors.New("nonce has max value")
+)
 
 func (svd *EVMPreprocessDecorator) AnteHandleSig(ctx sdk.Context, simulate bool, txData ethtx.TxData, msg *evmtypes.MsgEVMTransaction, ethTx *ethtypes.Transaction) (sdk.Context, error) {
 
