@@ -31,7 +31,7 @@ require (
 require (
 	cosmossdk.io/core v0.12.1-0.20240725072823-6a2d039e1212
 	github.com/cometbft/cometbft-db v1.0.4
-	github.com/eni-chain/eni-db v0.0.2-0.20250408030021-4b6939bccb70
+	github.com/eni-chain/eni-db v0.0.0-20250417072804-cd50b72160de
 	github.com/google/btree v1.1.3
 	github.com/puzpuzpuz/xsync/v4 v4.0.0
 )

@@ -3,6 +3,7 @@ package statev2
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"cosmossdk.io/errors"
 	"cosmossdk.io/store/internal/kv"
@@ -56,6 +57,9 @@ func (st *Store) CacheWrapWithListeners(storeKey types.StoreKey, listeners *type
 func (st *Store) Get(key []byte) []byte {
 	value, err := st.store.Get(st.storeKey.Name(), st.version, key)
 	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return nil
+		}
 		panic(err)
 	}
 	return value
