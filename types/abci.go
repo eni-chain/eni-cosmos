@@ -74,3 +74,7 @@ type ResponsePreBlock struct {
 func (r ResponsePreBlock) IsConsensusParamsChanged() bool {
 	return r.ConsensusParamsChanged
 }
+
+type EVMMsgsHandler func([][]byte)
+
+type EVMResultsHandler func([]*abci.ExecTxResult)

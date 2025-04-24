@@ -217,7 +217,7 @@ func (fc *EVMPreprocessDecorator) AnteHandleFee(ctx sdk.Context, simulate bool, 
 
 	balance := fc.evmKeeper.BankKeeper().GetBalance(ctx, sdk.AccAddress(msg.Derived.SenderEVMAddr[:]), fc.evmKeeper.GetBaseDenom(ctx))
 	if balance.Amount.IsZero() {
-		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, "account "+msg.Derived.SenderEVMAddr.Hex()+"needs to have enough balance to cover the transaction fees")
+		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, "account "+msg.Derived.SenderEVMAddr.Hex()+" needs to have enough balance to cover the transaction fees")
 	}
 	mgval := new(big.Int).SetUint64(etx.Gas())
 	mgval.Mul(mgval, etx.GasPrice())
