@@ -14,7 +14,10 @@ import (
 
 const BaseDenom = "ueni"
 
+var Params types.Params
+
 func (k Keeper) SetParams(ctx sdk.Context, params types.Params) {
+	Params = params
 	k.Paramstore.SetParamSet(ctx, &params)
 }
 
@@ -23,14 +26,16 @@ func (k *Keeper) GetParams(ctx sdk.Context) (params types.Params) {
 }
 
 func (k *Keeper) GetParamsIfExists(ctx sdk.Context) types.Params {
-	params := types.Params{}
-	params = types.DefaultParams()
-	return params
-	k.Paramstore.GetParamSetIfExists(ctx, &params)
-	if params.BaseFeePerGas.IsNil() {
-		params = types.DefaultParams()
+	if !Params.BaseFeePerGas.IsNil() {
+		return Params
 	}
-	return params
+
+	Params = types.DefaultParams()
+	k.Paramstore.GetParamSetIfExists(ctx, &Params)
+	if Params.BaseFeePerGas.IsNil() {
+		Params = types.DefaultParams()
+	}
+	return Params
 }
 
 func (k *Keeper) GetBaseDenom(ctx sdk.Context) string {

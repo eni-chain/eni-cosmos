@@ -87,6 +87,7 @@ func (k *Keeper) GetCurrBaseFeePerGas(ctx sdk.Context) cosmossdk_io_math.LegacyD
 }
 
 func (k *Keeper) SetCurrBaseFeePerGas(ctx sdk.Context, baseFeePerGas cosmossdk_io_math.LegacyDec) {
+	//Params.BaseFeePerGas.Set(baseFeePerGas)
 	store := ctx.KVStore(k.storeKey)
 	bz, err := baseFeePerGas.MarshalJSON()
 	if err != nil {
@@ -96,6 +97,8 @@ func (k *Keeper) SetCurrBaseFeePerGas(ctx sdk.Context, baseFeePerGas cosmossdk_i
 }
 
 func (k *Keeper) SetNextBaseFeePerGas(ctx sdk.Context, baseFeePerGas cosmossdk_io_math.LegacyDec) {
+	Params.BaseFeePerGas.Set(baseFeePerGas)
+
 	store := ctx.KVStore(k.storeKey)
 	bz, err := baseFeePerGas.MarshalJSON()
 	if err != nil {
