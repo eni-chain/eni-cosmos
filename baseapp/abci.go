@@ -766,8 +766,8 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	//}
 
 	// Context is now updated with Header information.
-	app.enableParallelTxExecution = true // todo: enable parallel tx execution
-	app.enableSimpleDag = true           // todo: enable simple dag
+	//app.enableParallelTxExecution = true // todo: enable parallel tx execution
+	app.enableSimpleDag = true // todo: enable simple dag
 	app.finalizeBlockState.SetContext(app.finalizeBlockState.Context().
 		WithBlockHeader(header).
 		WithHeaderHash(req.Hash).

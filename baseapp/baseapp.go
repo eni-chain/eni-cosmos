@@ -234,18 +234,18 @@ func NewBaseApp(
 	//	tr = tp.Tracer("component-main")
 	//}
 	app := &BaseApp{
-		logger:           logger,
-		name:             name,
-		db:               db,
-		cms:              store.NewCommitMultiStore(db, logger, storemetrics.NewNoOpMetrics()), // by default we use a no-op metric gather in store
-		storeLoader:      DefaultStoreLoader,
-		grpcQueryRouter:  NewGRPCQueryRouter(),
-		msgServiceRouter: NewMsgServiceRouter(),
-		txDecoder:        txDecoder,
-		fauxMerkleMode:   false,
-		sigverifyTx:      true,
-		queryGasLimit:    math.MaxUint64,
-
+		logger:                    logger,
+		name:                      name,
+		db:                        db,
+		cms:                       store.NewCommitMultiStore(db, logger, storemetrics.NewNoOpMetrics()), // by default we use a no-op metric gather in store
+		storeLoader:               DefaultStoreLoader,
+		grpcQueryRouter:           NewGRPCQueryRouter(),
+		msgServiceRouter:          NewMsgServiceRouter(),
+		txDecoder:                 txDecoder,
+		fauxMerkleMode:            false,
+		sigverifyTx:               true,
+		queryGasLimit:             math.MaxUint64,
+		enableParallelTxExecution: true, // default to true
 		//TracingEnabled: tracingEnabled,
 		//TracingInfo: &tracing.Info{
 		//	Tracer: &tr,

@@ -18,7 +18,9 @@ func (k *Keeper) GetState(ctx sdk.Context, addr common.Address, hash common.Hash
 
 func (k *Keeper) SetState(ctx sdk.Context, addr common.Address, key common.Hash, val common.Hash) {
 	k.PrefixStore(ctx, types.StateKey(addr)).Set(key[:], val[:])
-	k.logger.Debug("SetState", "address", addr.Hex(), "key", key.Hex(), "value", val.Hex())
+	if addr.Hex() == "0x1111111111111111111111111111111111111111" {
+		k.logger.Debug("SetState", "address", addr.Hex(), "key", key.Hex(), "value", val.Hex())
+	}
 }
 
 func (k *Keeper) IterateState(ctx sdk.Context, cb func(addr common.Address, key common.Hash, val common.Hash) bool) {

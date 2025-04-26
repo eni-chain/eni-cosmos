@@ -150,7 +150,7 @@ func (server msgServer) EVMTransaction(goCtx context.Context, msg *types.MsgEVMT
 		// This should not happen, as anything that could cause applyErr is supposed to
 		// be checked in CheckTx first
 		err = applyErr
-
+		server.logger.Warn(fmt.Sprintf("failed to apply EVM transaction, applyErr: %s", err))
 		telemetry.IncrCounterWithLabels(
 			[]string{types.ModuleName, "errors", "apply_message"},
 			1,
@@ -165,7 +165,7 @@ func (server msgServer) EVMTransaction(goCtx context.Context, msg *types.MsgEVMT
 	// if applyErr is nil then res must be non-nil
 	if res.Err != nil {
 		serverRes.VmError = res.Err.Error()
-
+		server.logger.Warn(fmt.Sprintf("failed to apply EVM transaction: %s", res.Err.Error()))
 		telemetry.IncrCounterWithLabels(
 			[]string{types.ModuleName, "errors", "vm_execution"},
 			1,

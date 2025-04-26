@@ -15,7 +15,7 @@ func (k *Keeper) VerifyAccount(ctx sdk.Context, addr common.Address, accountData
 	for key, expectedState := range accountData.Storage {
 		actualState := k.GetState(ctx, addr, key)
 		if !bytes.Equal(actualState.Bytes(), expectedState.Bytes()) {
-			panic(fmt.Sprintf("storage mismatch for address %s: expected %X, got %X", addr.Hex(), expectedState, actualState))
+			panic(fmt.Sprintf("storage mismatch for address %s key %x: expected %X, got %X", addr.Hex(), key.Bytes(), expectedState, actualState))
 		}
 	}
 	nonce := accountData.Nonce
