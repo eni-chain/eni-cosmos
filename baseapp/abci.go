@@ -853,6 +853,13 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 		app.evmResultsHandler(txResults)
 	}
 
+	evmTotalGasUsed := int64(0)
+	for _, txResult := range txResults {
+		evmTotalGasUsed += txResult.GasUsed
+	}
+
+	app.finalizeBlockState.Context().BlockGasMeter().ConsumeGas(uint64(evmTotalGasUsed), "")
+
 	startEndBlock := time.Now()
 	endBlock, err := app.endBlock(app.finalizeBlockState.Context())
 	endEndBlock := time.Now()

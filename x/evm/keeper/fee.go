@@ -35,16 +35,16 @@ func (k *Keeper) AdjustDynamicBaseFeePerGas(ctx sdk.Context, blockGasUsed uint64
 		denominator := blockGasLimit.Sub(targetGasUsed)
 		percentageFull := numerator.Quo(denominator)
 		adjustmentFactor := k.GetMaxDynamicBaseFeeUpwardAdjustment(ctx).Mul(percentageFull)
-		newBaseFee = prevBaseFee.Mul(cosmossdk_io_math.LegacyNewDec(1).Add(adjustmentFactor))
+		newBaseFee = cosmossdk_io_math.LegacyNewDec(prevBaseFee.Mul(cosmossdk_io_math.LegacyNewDec(1).Add(adjustmentFactor)).RoundInt64())
 	} else {
 		// downward adjustment
 		numerator := targetGasUsed.Sub(blockGasUsedDec)
 		denominator := targetGasUsed
 		percentageEmpty := numerator.Quo(denominator)
 		adjustmentFactor := k.GetMaxDynamicBaseFeeDownwardAdjustment(ctx).Mul(percentageEmpty)
-		newBaseFee = prevBaseFee.Mul(cosmossdk_io_math.LegacyNewDec(1).Sub(adjustmentFactor))
+		newBaseFee = cosmossdk_io_math.LegacyNewDec(prevBaseFee.Mul(cosmossdk_io_math.LegacyNewDec(1).Sub(adjustmentFactor)).RoundInt64())
 	}
-	ctx.Logger().Info("AdjustDynamicBaseFeePerGas", "current block height", ctx.BlockHeight(), "newBaseFee", newBaseFee)
+	ctx.Logger().Info("AdjustDynamicBaseFeePerGas", "current block height", ctx.BlockHeight(), "newBaseFee", newBaseFee, "blockGasUsed", blockGasUsed)
 	// Ensure the new base fee is not lower than the minimum fee
 	if newBaseFee.LT(minimumFeePerGas) {
 		newBaseFee = minimumFeePerGas

@@ -814,7 +814,6 @@ func (app *BaseApp) deliverTx(ctx sdk.Context, tx []byte) *abci.ExecTxResult {
 		)
 		return resp
 	}
-
 	resp = &abci.ExecTxResult{
 		GasWanted: int64(gInfo.GasWanted),
 		GasUsed:   int64(gInfo.GasUsed),
@@ -860,8 +859,8 @@ func (app *BaseApp) endBlock(_ context.Context) (sdk.EndBlock, error) {
 // returned if the tx does not run out of gas and if all the messages are valid
 // and execute successfully. An error is returned otherwise.
 func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo sdk.GasInfo, result *sdk.Result, anteEvents []abci.Event, //priority int64,
-	//pendingTxChecker abci.PendingTxChecker,
-	//expireHandler abci.ExpireTxHandler,
+//pendingTxChecker abci.PendingTxChecker,
+//expireHandler abci.ExpireTxHandler,
 	txCtx sdk.Context, err error) {
 	// NOTE: GasWanted should be returned by the AnteHandler. GasUsed is
 	// determined by the GasMeter. We need access to the context to get the gas
@@ -894,10 +893,10 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 	// fails. Hence, it's execution is deferred.
 	consumeBlockGas := func() {
 		if !blockGasConsumed {
-			blockGasConsumed = true
-			ctx.BlockGasMeter().ConsumeGas(
-				ctx.GasMeter().GasConsumedToLimit(), "block gas meter",
-			)
+			//	blockGasConsumed = true
+			//	ctx.BlockGasMeter().ConsumeGas(
+			//		ctx.GasMeter().GasConsumedToLimit(), "block gas meter",
+			//	)
 		}
 	}
 
