@@ -345,7 +345,7 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs *sdk.DeliverTxBatchRequest)
 	start(workerCtx, s.executeCh, workers)
 
 	// validation tasks uses length of tasks to avoid blocking on validation
-	start(workerCtx, s.validateCh, len(tasks))
+	start(workerCtx, s.validateCh, workers)
 
 	toExecute := tasks
 	execStart := time.Now()
