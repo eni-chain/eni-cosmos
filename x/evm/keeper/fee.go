@@ -44,7 +44,7 @@ func (k *Keeper) AdjustDynamicBaseFeePerGas(ctx sdk.Context, blockGasUsed uint64
 		adjustmentFactor := k.GetMaxDynamicBaseFeeDownwardAdjustment(ctx).Mul(percentageEmpty)
 		newBaseFee = prevBaseFee.Mul(cosmossdk_io_math.LegacyNewDec(1).Sub(adjustmentFactor))
 	}
-
+	ctx.Logger().Info("AdjustDynamicBaseFeePerGas", "current block height", ctx.BlockHeight(), "newBaseFee", newBaseFee)
 	// Ensure the new base fee is not lower than the minimum fee
 	if newBaseFee.LT(minimumFeePerGas) {
 		newBaseFee = minimumFeePerGas
@@ -54,7 +54,7 @@ func (k *Keeper) AdjustDynamicBaseFeePerGas(ctx sdk.Context, blockGasUsed uint64
 	if newBaseFee.GT(maximumFeePerGas) {
 		newBaseFee = maximumFeePerGas
 	}
-
+	ctx.Logger().Info("AdjustDynamicBaseFeePerGas", "current block height", ctx.BlockHeight(), "set newBaseFee", newBaseFee)
 	// Set the new base fee for the next height
 	k.SetNextBaseFeePerGas(ctx, newBaseFee)
 
