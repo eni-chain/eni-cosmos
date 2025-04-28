@@ -2,10 +2,9 @@ package evm
 
 import (
 	"context"
+	modulev1 "cosmossdk.io/api/cosmos/evm/module"
 	"encoding/json"
 	"fmt"
-
-	modulev1 "cosmossdk.io/api/cosmos/evm/module"
 
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	"github.com/cosmos/cosmos-sdk/x/evm/exported"
@@ -25,7 +24,6 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	"github.com/cosmos/cosmos-sdk/x/evm/client/cli"
-	"github.com/cosmos/cosmos-sdk/x/evm/state"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -192,8 +190,8 @@ func (am AppModule) EndBlock(goCtx context.Context) error {
 		_ = am.keeper.AccountKeeper().GetModuleAddress(authtypes.FeeCollectorName)
 	}
 	evmTxDeferredInfoList := am.keeper.GetAllEVMTxDeferredInfo(ctx)
-	denom := am.keeper.GetBaseDenom(ctx)
-	surplus := am.keeper.GetAnteSurplusSum(ctx)
+	//denom := am.keeper.GetBaseDenom(ctx)
+	//surplus := am.keeper.GetAnteSurplusSum(ctx)
 	for _, deferredInfo := range evmTxDeferredInfoList {
 		txHash := common.BytesToHash(deferredInfo.TxHash)
 		if deferredInfo.Error != "" && txHash.Cmp(ethtypes.EmptyTxsHash) != 0 {
@@ -205,18 +203,18 @@ func (am AppModule) EndBlock(goCtx context.Context) error {
 			})
 			continue
 		}
-		idx := int(deferredInfo.TxIndex)
-		coinbaseAddress := state.GetCoinbaseAddress(idx)
-		balance := am.keeper.BankKeeper().SpendableCoins(ctx, coinbaseAddress).AmountOf(denom)
+		//idx := int(deferredInfo.TxIndex)
+		//coinbaseAddress := state.GetCoinbaseAddress(idx)
+		//balance := am.keeper.BankKeeper().SpendableCoins(ctx, coinbaseAddress).AmountOf(denom)
 		//weiBalance := am.keeper.BankKeeper().GetWeiBalance(ctx, coinbaseAddress)
-		weiBalance := am.keeper.BankKeeper().GetBalance(ctx, coinbaseAddress, denom)
-		if !balance.IsZero() || !weiBalance.IsZero() {
-			// todo  check code correct
-			//if err := am.keeper.BankKeeper().SendCoinsAndWei(ctx, coinbaseAddress, coinbase, balance, weiBalance); err != nil {
-			//	ctx.Logger().Error(fmt.Sprintf("failed to send ueni surplus from %s to coinbase account due to %s", coinbaseAddress.String(), err))
-			//}
-		}
-		surplus = surplus.Add(deferredInfo.Surplus)
+		//weiBalance := am.keeper.BankKeeper().GetBalance(ctx, coinbaseAddress, denom)
+		//if !balance.IsZero() || !weiBalance.IsZero() {
+		//	// todo  check code correct
+		//	//if err := am.keeper.BankKeeper().SendCoinsAndWei(ctx, coinbaseAddress, coinbase, balance, weiBalance); err != nil {
+		//	//	ctx.Logger().Error(fmt.Sprintf("failed to send ueni surplus from %s to coinbase account due to %s", coinbaseAddress.String(), err))
+		//	//}
+		//}
+		//surplus = surplus.Add(deferredInfo.Surplus)
 	}
 	//if surplus.IsPositive() {
 	//	surplusUeni, surplusWei := state.SplitUeniWeiAmount(surplus.BigInt())
