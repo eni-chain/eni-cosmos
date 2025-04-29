@@ -228,7 +228,7 @@ func (fc *EVMPreprocessDecorator) AnteHandleFee(ctx sdk.Context, simulate bool, 
 		fc.evmKeeper.BankKeeper().SetBalance(ctx, msg.Derived.SenderEVMAddr[:], balance)
 	}
 	// Make sure this transaction's nonce is correct.
-	if !ctx.IsFastMempool() {
+	if ctx.ExecMode() == sdk.ExecModeFinalize {
 		stNonce := fc.evmKeeper.GetNonce(ctx, msg.Derived.SenderEVMAddr)
 		if msgNonce := etx.Nonce(); stNonce < msgNonce {
 			return ctx, fmt.Errorf("%w: address %v, tx: %d state: %d", ErrNonceTooHigh,
