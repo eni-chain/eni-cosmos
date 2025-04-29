@@ -845,7 +845,6 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	if app.finalizeBlockState.ms.TracingEnabled() {
 		app.finalizeBlockState.ms = app.finalizeBlockState.ms.SetTracingContext(nil).(storetypes.CacheMultiStore)
 	}
-	startTime := time.Now()
 	if app.evmMsgsHandler != nil {
 		app.evmMsgsHandler(req.Txs, msgs)
 	}
@@ -857,7 +856,6 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	for _, txResult := range txResults {
 		evmTotalGasUsed += txResult.GasUsed
 	}
-	app.logger.Info("Time evmTotalGasUsed", "block height", req.Height, "spend time", time.Since(startTime).Microseconds(), "now time", time.Now().Format(time.StampMicro))
 	app.finalizeBlockState.Context().BlockGasMeter().ConsumeGas(uint64(evmTotalGasUsed), "")
 
 	startEndBlock := time.Now()
