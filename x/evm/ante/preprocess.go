@@ -136,7 +136,6 @@ func (p *EVMPreprocessDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate
 
 	adjustedGasLimit := p.evmKeeper.GetPriorityNormalizer(ctx).MulInt64(int64(txData.GetGas()))
 	ctx = ctx.WithGasMeter(storetypes.NewGasMeter(adjustedGasLimit.TruncateInt().Uint64()))
-
 	return next(ctx, tx, simulate)
 }
 
@@ -229,18 +228,19 @@ func (fc *EVMPreprocessDecorator) AnteHandleFee(ctx sdk.Context, simulate bool, 
 		fc.evmKeeper.BankKeeper().SetBalance(ctx, msg.Derived.SenderEVMAddr[:], balance)
 	}
 	// Make sure this transaction's nonce is correct.
-	stNonce := fc.evmKeeper.GetNonce(ctx, msg.Derived.SenderEVMAddr)
-	if msgNonce := etx.Nonce(); stNonce < msgNonce {
-		return ctx, fmt.Errorf("%w: address %v, tx: %d state: %d", ErrNonceTooHigh,
-			msg.Derived.SenderEVMAddr.Hex(), msgNonce, stNonce)
-	} else if stNonce > msgNonce {
-		return ctx, fmt.Errorf("%w: address %v, tx: %d state: %d", ErrNonceTooLow,
-			msg.Derived.SenderEVMAddr.Hex(), msgNonce, stNonce)
-	} else if stNonce+1 < stNonce {
-		return ctx, fmt.Errorf("%w: address %v, nonce: %d", ErrNonceMax,
-			msg.Derived.SenderEVMAddr.Hex(), stNonce)
+	if !ctx.IsFastMempool() {
+		stNonce := fc.evmKeeper.GetNonce(ctx, msg.Derived.SenderEVMAddr)
+		if msgNonce := etx.Nonce(); stNonce < msgNonce {
+			return ctx, fmt.Errorf("%w: address %v, tx: %d state: %d", ErrNonceTooHigh,
+				msg.Derived.SenderEVMAddr.Hex(), msgNonce, stNonce)
+		} else if stNonce > msgNonce {
+			return ctx, fmt.Errorf("%w: address %v, tx: %d state: %d", ErrNonceTooLow,
+				msg.Derived.SenderEVMAddr.Hex(), msgNonce, stNonce)
+		} else if stNonce+1 < stNonce {
+			return ctx, fmt.Errorf("%w: address %v, nonce: %d", ErrNonceMax,
+				msg.Derived.SenderEVMAddr.Hex(), stNonce)
+		}
 	}
-
 	return ctx, nil
 
 	// check if the sender has enough balance to cover fees

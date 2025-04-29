@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"github.com/cosmos/cosmos-sdk/x/evm/types"
 	"math"
 	"runtime"
 	"sort"
@@ -82,8 +83,8 @@ type BaseApp struct {
 	anteHandler sdk.AnteHandler // ante handler for fee and auth
 	postHandler sdk.PostHandler // post handler, optional
 
-	evmMsgsHandler    sdk.EVMMsgsHandler    // handler for EVM messages
-	evmResultsHandler sdk.EVMResultsHandler // handler for EVM results
+	evmMsgsHandler    EVMMsgsHandler    // handler for EVM messages
+	evmResultsHandler EVMResultsHandler // handler for EVM results
 
 	initChainer        sdk.InitChainer                // ABCI InitChain handler
 	preBlocker         sdk.PreBlocker                 // logic to run before BeginBlocker
@@ -213,6 +214,10 @@ type BaseApp struct {
 	concurrencyWorkers int
 	occEnabled         bool
 }
+
+type EVMMsgsHandler func([][]byte, []*types.MsgEVMTransaction)
+
+type EVMResultsHandler func([]*abci.ExecTxResult)
 
 // NewBaseApp returns a reference to an initialized BaseApp. It accepts a
 // variadic number of option functions, which act on the BaseApp to set
@@ -814,7 +819,6 @@ func (app *BaseApp) deliverTx(ctx sdk.Context, tx []byte) *abci.ExecTxResult {
 		)
 		return resp
 	}
-
 	resp = &abci.ExecTxResult{
 		GasWanted: int64(gInfo.GasWanted),
 		GasUsed:   int64(gInfo.GasUsed),
@@ -894,10 +898,10 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 	// fails. Hence, it's execution is deferred.
 	consumeBlockGas := func() {
 		if !blockGasConsumed {
-			blockGasConsumed = true
-			ctx.BlockGasMeter().ConsumeGas(
-				ctx.GasMeter().GasConsumedToLimit(), "block gas meter",
-			)
+			//	blockGasConsumed = true
+			//	ctx.BlockGasMeter().ConsumeGas(
+			//		ctx.GasMeter().GasConsumedToLimit(), "block gas meter",
+			//	)
 		}
 	}
 
@@ -1245,7 +1249,7 @@ func (app *BaseApp) deliverTxBatch(ctx sdk.Context, req *sdk.DeliverTxBatchReque
 	return txRes
 }
 
-func (app *BaseApp) execTx(ctx sdk.Context, txs [][]byte, SimpleDag []int64) []*abci.ExecTxResult {
+func (app *BaseApp) execTx(ctx sdk.Context, txs [][]byte, SimpleDag []int64) ([]*abci.ExecTxResult, []*types.MsgEVMTransaction) {
 	if ctx.IsParallelTx() {
 		var txRes []*abci.ExecTxResult
 		//if len(req.AssociateTxs) != 0 {
@@ -1256,14 +1260,16 @@ func (app *BaseApp) execTx(ctx sdk.Context, txs [][]byte, SimpleDag []int64) []*
 		//	txRes = app.serialProcessTxs(ctx, assTxs)
 		//}
 		//return append(txRes, app.parallelProcessTxs(ctx, req)...)
-		return append(txRes, app.parallelProcessTxs(ctx, txs, SimpleDag)...)
+		txRs, msgs := app.parallelProcessTxs(ctx, txs, SimpleDag)
+		return append(txRes, txRs...), msgs
 	}
 
-	return app.serialProcessTxs(ctx, txs)
+	return app.serialProcessTxs(ctx, txs), nil
 }
 
-func (app *BaseApp) parallelProcessTxs(ctx sdk.Context, txs [][]byte, simpleDag []int64) []*abci.ExecTxResult {
+func (app *BaseApp) parallelProcessTxs(ctx sdk.Context, txs [][]byte, simpleDag []int64) ([]*abci.ExecTxResult, []*types.MsgEVMTransaction) {
 	entries := make([]*sdk.DeliverTxEntry, len(txs))
+	msgs := make([]*types.MsgEVMTransaction, len(txs))
 	var span trace.Span
 	if app.TracingEnabled {
 		_, span = app.TracingInfo.Start("GenerateEstimatedWritesets")
@@ -1281,6 +1287,7 @@ func (app *BaseApp) parallelProcessTxs(ctx sdk.Context, txs [][]byte, simpleDag 
 				return
 			}
 			entries[txIndex] = app.GetDeliverTxEntry(ctx, txIndex, tx, typedTx)
+			msgs[txIndex] = convertEVMMsg(typedTx)
 		}(txIndex, tx)
 	}
 
@@ -1290,7 +1297,23 @@ func (app *BaseApp) parallelProcessTxs(ctx sdk.Context, txs [][]byte, simpleDag 
 		span.End()
 	}
 
-	return app.deliverTxBatch(ctx, &sdk.DeliverTxBatchRequest{TxEntries: entries, SimpleDag: simpleDag})
+	txRes := app.deliverTxBatch(ctx, &sdk.DeliverTxBatchRequest{TxEntries: entries, SimpleDag: simpleDag})
+	return txRes, msgs
+}
+
+func convertEVMMsg(tx sdk.Tx) (res *types.MsgEVMTransaction) {
+	defer func() {
+		if err := recover(); err != nil {
+			res = nil
+		}
+	}()
+	if tx == nil {
+		return nil
+	} else if emsg := types.GetEVMTransactionMessage(tx); emsg != nil && !emsg.IsAssociateTx() {
+		return emsg
+	} else {
+		return nil
+	}
 }
 
 func (app *BaseApp) GetDeliverTxEntry(ctx sdk.Context, absoluateIndex int, bz []byte, tx sdk.Tx) (res *sdk.DeliverTxEntry) {

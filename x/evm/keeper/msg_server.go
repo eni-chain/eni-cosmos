@@ -204,10 +204,11 @@ func (k *Keeper) GetEVMMessage(ctx sdk.Context, tx *ethtypes.Transaction, sender
 		From:             sender,
 	}
 	// If baseFee provided, set gasPrice to effectiveGasPrice.
-	baseFee := k.GetBaseFee(ctx)
-	if baseFee != nil {
-		msg.GasPrice = BigMin(msg.GasPrice.Add(msg.GasTipCap, baseFee), msg.GasFeeCap)
-	}
+	// TODO eni not supply GasTipCap
+	//baseFee := k.GetBaseFee(ctx)
+	//if baseFee != nil {
+	//	msg.GasPrice = BigMin(msg.GasPrice.Add(msg.GasTipCap, baseFee), msg.GasFeeCap)
+	//}
 	return msg
 }
 

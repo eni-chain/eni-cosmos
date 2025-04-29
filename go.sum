@@ -212,10 +212,10 @@ github.com/eapache/queue v1.1.0/go.mod h1:6eCeP0CKFpHLu8blIFXhExK/dRa7WDZfr6jVFP
 github.com/edsrzf/mmap-go v1.0.0/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
 github.com/emicklei/dot v1.6.2 h1:08GN+DD79cy/tzN6uLCT84+2Wk9u+wvqP+Hkx/dIR8A=
 github.com/emicklei/dot v1.6.2/go.mod h1:DeV7GvQtIw4h2u73RKBkkFdvVAz0D9fzeJrgPW6gy/s=
-github.com/eni-chain/eni-cometbft v0.0.0-20250416110654-231bd23f28f3 h1:UmmeIv/DXwN8YyXwWqbjeUGUD/d+VvF8IJ4ltmP2Mvg=
-github.com/eni-chain/eni-cometbft v0.0.0-20250416110654-231bd23f28f3/go.mod h1:5l0SkgeLRXi6bBfQuevXjKqML1jjfJJlvI1Ulp02/o4=
-github.com/eni-chain/go-ethereum v0.0.0-20250412064101-a6bcc327b474 h1:QhkuIjzOCaTybInJVSec0HTVS02CFnCK7cgxbbPjvps=
-github.com/eni-chain/go-ethereum v0.0.0-20250412064101-a6bcc327b474/go.mod h1:4q+4t48P2C03sjqGvTXix5lEOplf5dz4CTosbjt5tGs=
+github.com/eni-chain/eni-cometbft v0.0.0-20250425121440-b2ee3fd6171c h1:nu2J1F3XCyVtpeErxYmIcmX6Mi9XpznOOaToJlnjm6M=
+github.com/eni-chain/eni-cometbft v0.0.0-20250425121440-b2ee3fd6171c/go.mod h1:5l0SkgeLRXi6bBfQuevXjKqML1jjfJJlvI1Ulp02/o4=
+github.com/eni-chain/go-ethereum v0.0.0-20250427153625-6da9a608bcc1 h1:kS5rZIRSGyLhiaF7BBCVnw3Di7u/D6/m1s9lw+ZPG24=
+github.com/eni-chain/go-ethereum v0.0.0-20250427153625-6da9a608bcc1/go.mod h1:4q+4t48P2C03sjqGvTXix5lEOplf5dz4CTosbjt5tGs=
 github.com/envoyproxy/go-control-plane v0.6.9/go.mod h1:SBwIajubJHhxtWwsL9s8ss4safvEdbitLhGGK48rN6g=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
