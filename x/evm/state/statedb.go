@@ -6,7 +6,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/utils"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/stateless"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -63,7 +62,7 @@ func (s *DBImpl) Witness() *stateless.Witness {
 	return nil
 }
 
-func (s *DBImpl) AccessEvents() *state.AccessEvents {
+func (s *DBImpl) AccessEvents() *vm.AccessEvents {
 	//TODO implement me
 	return nil
 }
