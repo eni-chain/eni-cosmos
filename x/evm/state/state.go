@@ -2,6 +2,7 @@ package state
 
 import (
 	"bytes"
+	"sort"
 
 	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -111,7 +112,15 @@ func (s *DBImpl) RevertToSnapshot(rev int) {
 }
 
 func (s *DBImpl) handleResidualFundsInDestructedAccounts(st *TemporaryState) {
-	for a, status := range st.transientAccounts {
+	// sort  st.transientAccounts keys
+	keys := make([]string, 0, len(st.transientAccounts))
+	for key := range st.transientAccounts {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	// iterate over the sorted keys
+	for _, a := range keys {
+		status := st.transientAccounts[a]
 		if !bytes.Equal(status, AccountDeleted) {
 			continue
 		}
