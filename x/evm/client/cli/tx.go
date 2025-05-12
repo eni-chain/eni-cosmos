@@ -93,7 +93,7 @@ type AssociateRequest struct {
 	CustomMessage string `json:"custom_message"`
 }
 
-const LocalAddress = "0.0.0.0"
+const LocalAddress = "127.0.0.1"
 
 func CmdAssociateAddress() *cobra.Command {
 	cmd := &cobra.Command{
@@ -286,7 +286,7 @@ const LF = 10
 
 func CmdDeployContract() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "deploy [path to binary] [value] --from=<sender> --gas-fee-cap=<cap> --gas-limt=<limit> --evm-rpc=<url>",
+		Use:   "deploy [path to binary] --value=<value> --from=<sender> --gas-fee-cap=<cap> --gas-limt=<limit> --evm-rpc=<url>",
 		Short: "Deploy an EVM contract for binary at specified path",
 		Long:  "",
 		Args:  cobra.ExactArgs(1),
@@ -590,7 +590,7 @@ func CmdCallPrecompile() *cobra.Command {
 
 	cmd.Flags().Uint64(FlagGasFeeCap, 1000000000000, "Gas fee cap for the transaction")
 	cmd.Flags().Uint64(FlagGas, 7000000, "Gas limit for the transaction")
-	//cmd.Flags().String(FlagRPC, fmt.Sprintf("http://%s:8545", LocalAddress), "RPC endpoint to send request to")
+	cmd.Flags().String(FlagRPC, fmt.Sprintf("http://%s:8545", LocalAddress), "RPC endpoint to send request to")
 	cmd.Flags().Int64(FlagNonce, -1, "Nonce override for the transaction. Negative value means no override")
 	cmd.Flags().String(FlagValue, "", "Value for the transaction")
 	flags.AddTxFlagsToCmd(cmd)
@@ -819,7 +819,7 @@ func sendTx(txData *ethtypes.DynamicFeeTx, rpcUrl string, key *ecdsa.PrivateKey,
 
 	txbz, encodeErr := clientCtx.TxConfig.TxEncoder()(txBuilder.GetTx())
 	if encodeErr != nil {
-		return common.Hash{}, err
+		return common.Hash{}, encodeErr
 	}
 
 	h := bfttypes.Tx(txbz).Hash()
