@@ -688,8 +688,8 @@ func getPrivateKey(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 		return nil, errors.New("can only associate address for local keys")
 	}
 	priv, ok := localInfo.Local.PrivKey.GetCachedValue().(cryptotypes.PrivKey)
-	if err != nil {
-		return nil, err
+	if !ok {
+		return nil, errors.New("Not the expected type of private key,expected cryptotypes.PrivKey ")
 	}
 
 	//if localInfo.GetAlgo() != hd.Secp256k1Type {

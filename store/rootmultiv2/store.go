@@ -589,7 +589,7 @@ func (rs *Store) Query(req *types.RequestQuery) (*types.ResponseQuery, error) {
 	path := req.Path
 	storeName, subPath, err := parsePath(path)
 	if err != nil {
-		return nil, err
+		return &types.ResponseQuery{}, err
 	}
 	var store types.Queryable
 	var commitInfo *types.CommitInfo
@@ -601,7 +601,7 @@ func (rs *Store) Query(req *types.RequestQuery) (*types.ResponseQuery, error) {
 		// Serve abci query from historical sc store if proofs needed
 		scStore, err := rs.scStore.LoadVersion(version, true)
 		if err != nil {
-			return nil, err
+			return &types.ResponseQuery{}, err
 		}
 		defer scStore.Close()
 		store = types.Queryable(commitmentv2.NewStore(scStore.GetTreeByName(storeName), rs.logger))
@@ -613,7 +613,7 @@ func (rs *Store) Query(req *types.RequestQuery) (*types.ResponseQuery, error) {
 	req.Path = subPath
 	res, err := store.Query(req)
 	if err != nil {
-		return nil, err
+		return &types.ResponseQuery{}, err
 	}
 	if !req.Prove || !rootmulti.RequireProof(subPath) {
 		return res, nil
