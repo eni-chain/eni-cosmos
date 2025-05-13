@@ -33,7 +33,8 @@ func (q Querier) EniAddressByEVMAddress(c context.Context, req *types.QueryEniAd
 	evmAddr := common.HexToAddress(req.EvmAddress)
 	addr, found := q.Keeper.GetEniAddress(ctx, evmAddr)
 	if !found {
-		return &types.QueryEniAddressByEVMAddressResponse{Associated: false}, nil
+		eni := q.Keeper.GetEniAddressOrDefault(ctx, evmAddr)
+		return &types.QueryEniAddressByEVMAddressResponse{Associated: false, EniAddress: eni.String()}, nil
 	}
 
 	return &types.QueryEniAddressByEVMAddressResponse{EniAddress: addr.String(), Associated: true}, nil
@@ -50,7 +51,8 @@ func (q Querier) EVMAddressByEniAddress(c context.Context, req *types.QueryEVMAd
 	}
 	addr, found := q.Keeper.GetEVMAddress(ctx, eniAddr)
 	if !found {
-		return &types.QueryEVMAddressByEniAddressResponse{Associated: false}, nil
+		evmAddr := q.Keeper.GetEVMAddressOrDefault(ctx, eniAddr)
+		return &types.QueryEVMAddressByEniAddressResponse{Associated: false, EvmAddress: evmAddr.String()}, nil
 	}
 
 	return &types.QueryEVMAddressByEniAddressResponse{EvmAddress: addr.Hex(), Associated: true}, nil
