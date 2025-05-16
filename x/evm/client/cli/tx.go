@@ -14,13 +14,17 @@ import (
 	"strings"
 
 	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/math"
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/evm/ante"
 	"github.com/cosmos/cosmos-sdk/x/evm/types/ethtx"
+	secp256k1v4 "github.com/decred/dcrd/dcrec/secp256k1/v4"
 
 	//"github.com/cosmos/cosmos-sdk/crypto/hd"
 
@@ -220,18 +224,38 @@ func CmdSend() *cobra.Command {
 		Long:  "",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			clientCtx, err := client.GetClientQueryContext(cmd)
+			clientCtx, err := client.GetClientTxContext(cmd)
 			if err != nil {
 				return err
+			}
+			clientCtx.GetFromAddress()
+			to := common.HexToAddress(args[0])
+			val, success := new(big.Int).SetString(args[1], 10)
+			if !success {
+				return fmt.Errorf("%s is an invalid amount to send", args[1])
 			}
 			key, err := getPrivateKey(cmd)
 			if err != nil {
 				return err
 			}
-
+			priv := secp256k1v4.PrivKeyFromBytes(key.D.Bytes())
+			pub := priv.PubKey()
+			pubBytes := pub.SerializeCompressed()
+			k := secp256k1.PubKey{Key: pubBytes}
+			fmt.Println("eni address: ", k.Address().String())
+			senderAddr := "0x" + k.Address().String()
 			rpc, err := cmd.Flags().GetString(FlagRPC)
 			if err != nil {
 				return err
+			}
+			//get balance
+			balance, err := getBalance(rpc, senderAddr)
+			if err == nil && balance != nil && balance.Cmp(big.NewInt(0)) > 0 {
+				toAddr := common.Address(to.Bytes())
+				//send bank transfer tx
+				msg := types.NewMsgSend(clientCtx.GetFromAddress(), toAddr, sdk.Coins{sdk.Coin{Denom: "ueni", Amount: math.NewIntFromBigInt(val)}})
+				return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
+
 			}
 			var nonce uint64
 			if n, err := cmd.Flags().GetInt64(FlagNonce); err == nil && n >= 0 {
@@ -243,11 +267,6 @@ func CmdSend() *cobra.Command {
 				}
 			}
 
-			to := common.HexToAddress(args[0])
-			val, success := new(big.Int).SetString(args[1], 10)
-			if !success {
-				return fmt.Errorf("%s is an invalid amount to send", args[1])
-			}
 			txData, err := getTxData(cmd)
 			if err != nil {
 				return err
@@ -727,6 +746,33 @@ func getNonce(rpc string, key ecdsa.PublicKey) (uint64, error) {
 		return 0, err
 	}
 	return uint64(*nonce), nil
+}
+
+func getBalance(rpc string, addr string) (*big.Int, error) {
+	balanceQuery := fmt.Sprintf("{\"jsonrpc\": \"2.0\",\"method\": \"eth_getBalance\",\"params\":[\"%s\",\"latest\"],\"id\":\"send-cli\"}", addr)
+	req, err := http.NewRequest(http.MethodGet, rpc, strings.NewReader(balanceQuery))
+	if err != nil {
+		return big.NewInt(0), err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return big.NewInt(0), err
+	}
+	defer res.Body.Close()
+	resBody, err := io.ReadAll(res.Body)
+	if err != nil {
+		return big.NewInt(0), err
+	}
+	resObj := map[string]interface{}{}
+	if err := json.Unmarshal(resBody, &resObj); err != nil {
+		return big.NewInt(0), err
+	}
+	balance := new(hexutil.Big)
+	if err := balance.UnmarshalText([]byte(resObj["result"].(string))); err != nil {
+		return big.NewInt(0), err
+	}
+	return balance.ToInt(), nil
 }
 
 func getChainId(rpc string) (*big.Int, error) {
