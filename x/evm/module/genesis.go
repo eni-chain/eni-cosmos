@@ -19,6 +19,9 @@ func InitGenesis(ctx sdk.Context, k *keeper.Keeper, genState types.GenesisState)
 	k.SetParams(ctx, genState.Params)
 	initEniAddressList := strings.Split(genState.Params.InitEniAddress, ",")
 	initEniAmountList := strings.Split(genState.Params.InitEniAmount, ",")
+	if len(initEniAddressList) != len(initEniAmountList) {
+		panic("InitEniAddress and InitEniAmount length not equal")
+	}
 	for i, initEniAddress := range initEniAddressList {
 		initEniAmount := initEniAmountList[i]
 		if len(initEniAddress) == 0 || len(initEniAmount) == 0 {
