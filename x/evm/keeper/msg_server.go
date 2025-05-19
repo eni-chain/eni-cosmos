@@ -251,19 +251,19 @@ func (server msgServer) RegisterPointer(goCtx context.Context, msg *types.MsgReg
 }
 
 func (server msgServer) AssociateContractAddress(goCtx context.Context, msg *types.MsgAssociateContractAddress) (*types.MsgAssociateContractAddressResponse, error) {
-	ctx := sdk.UnwrapSDKContext(goCtx)
-	addr := sdk.MustAccAddressFromBech32(msg.Address) // already validated
-	// check if address is for a contract
-
-	evmAddr := common.BytesToAddress(addr)
-	existingEvmAddr, ok := server.GetEVMAddress(ctx, addr)
-	if ok {
-		if existingEvmAddr.Cmp(evmAddr) != 0 {
-			ctx.Logger().Error(fmt.Sprintf("unexpected associated EVM address %s exists for contract %s: expecting %s", existingEvmAddr.Hex(), addr.String(), evmAddr.Hex()))
-		}
-		return nil, errors.New("contract already has an associated address")
-	}
-	server.SetAddressMapping(ctx, addr, evmAddr)
+	//ctx := sdk.UnwrapSDKContext(goCtx)
+	//addr := sdk.MustAccAddressFromBech32(msg.Address) // already validated
+	//// check if address is for a contract
+	//
+	//evmAddr := common.BytesToAddress(addr)
+	//existingEvmAddr, ok := server.GetEVMAddress(ctx, addr)
+	//if ok {
+	//	if existingEvmAddr.Cmp(evmAddr) != 0 {
+	//		ctx.Logger().Error(fmt.Sprintf("unexpected associated EVM address %s exists for contract %s: expecting %s", existingEvmAddr.Hex(), addr.String(), evmAddr.Hex()))
+	//	}
+	//	return nil, errors.New("contract already has an associated address")
+	//}
+	//server.SetAddressMapping(ctx, addr, evmAddr)
 	return &types.MsgAssociateContractAddressResponse{}, nil
 }
 
