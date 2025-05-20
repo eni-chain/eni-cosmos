@@ -8,10 +8,11 @@ import (
 )
 
 func (k *Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) {
-	//moduleAcc := authtypes.NewEmptyModuleAccount(types.ModuleName, authtypes.Minter, authtypes.Burner)
-	//k.accountKeeper.SetModuleAccount(ctx, moduleAcc)
 	// check if the module account exists
 	moduleAcc := k.accountKeeper.GetModuleAccount(ctx, types.ModuleName)
+	if moduleAcc == nil {
+		moduleAcc = authtypes.NewEmptyModuleAccount(types.ModuleName, authtypes.Minter, authtypes.Burner)
+	}
 	balances := k.bankKeeper.GetAllBalances(ctx, moduleAcc.GetAddress())
 	if balances.IsZero() {
 		k.accountKeeper.SetModuleAccount(ctx, moduleAcc)
