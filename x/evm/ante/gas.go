@@ -17,7 +17,7 @@ func NewGasLimitDecorator(evmKeeper *evmkeeper.Keeper) *GasLimitDecorator {
 
 // Called at the end of the ante chain to set gas limit properly
 func (gl GasLimitDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
-	return ctx, nil
+	return next(ctx, tx, simulate)
 	msg := evmtypes.MustGetEVMTransactionMessage(tx)
 	txData, err := evmtypes.UnpackTxData(msg.Data)
 	if err != nil {

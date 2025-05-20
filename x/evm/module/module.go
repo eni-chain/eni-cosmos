@@ -5,6 +5,7 @@ import (
 	modulev1 "cosmossdk.io/api/cosmos/evm/module"
 	"encoding/json"
 	"fmt"
+	"github.com/cosmos/cosmos-sdk/x/evm/state"
 
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	"github.com/cosmos/cosmos-sdk/x/evm/exported"
@@ -178,7 +179,8 @@ func (am AppModule) BeginBlock(ctx context.Context) error {
 func (am AppModule) EndBlock(goCtx context.Context) error {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	_ = am.keeper.AdjustDynamicBaseFeePerGas(ctx, ctx.BlockGasMeter().GasConsumed())
-	var _ sdk.AccAddress // to avoid unused error
+
+	var coinbase sdk.AccAddress // to avoid unused error
 	if am.keeper.EthBlockTestConfig.Enabled {
 		blocks := am.keeper.BlockTest.Json.Blocks
 		block, err := blocks[ctx.BlockHeight()-1].Decode()
@@ -188,9 +190,12 @@ func (am AppModule) EndBlock(goCtx context.Context) error {
 		_ = am.keeper.GetEniAddressOrDefault(ctx, block.Header().Coinbase)
 	} else {
 		_ = am.keeper.AccountKeeper().GetModuleAddress(authtypes.FeeCollectorName)
+		header := ctx.BlockHeader()
+		proposerBytes := header.GetProposerAddress()
+		coinbase = sdk.AccAddress(proposerBytes)
 	}
 	evmTxDeferredInfoList := am.keeper.GetAllEVMTxDeferredInfo(ctx)
-	//denom := am.keeper.GetBaseDenom(ctx)
+	denom := am.keeper.GetBaseDenom(ctx)
 	//surplus := am.keeper.GetAnteSurplusSum(ctx)
 	for _, deferredInfo := range evmTxDeferredInfoList {
 		txHash := common.BytesToHash(deferredInfo.TxHash)
@@ -203,17 +208,20 @@ func (am AppModule) EndBlock(goCtx context.Context) error {
 			})
 			continue
 		}
-		//idx := int(deferredInfo.TxIndex)
-		//coinbaseAddress := state.GetCoinbaseAddress(idx)
-		//balance := am.keeper.BankKeeper().SpendableCoins(ctx, coinbaseAddress).AmountOf(denom)
+		idx := int(deferredInfo.TxIndex)
+		coinbaseAddress := state.GetCoinbaseAddress(idx)
+		balances := am.keeper.BankKeeper().SpendableCoins(ctx, coinbaseAddress)
 		//weiBalance := am.keeper.BankKeeper().GetWeiBalance(ctx, coinbaseAddress)
 		//weiBalance := am.keeper.BankKeeper().GetBalance(ctx, coinbaseAddress, denom)
-		//if !balance.IsZero() || !weiBalance.IsZero() {
-		//	// todo  check code correct
-		//	//if err := am.keeper.BankKeeper().SendCoinsAndWei(ctx, coinbaseAddress, coinbase, balance, weiBalance); err != nil {
-		//	//	ctx.Logger().Error(fmt.Sprintf("failed to send ueni surplus from %s to coinbase account due to %s", coinbaseAddress.String(), err))
-		//	//}
-		//}
+		if !balances.IsZero() {
+			exist, balance := balances.Find(denom)
+			if !exist {
+				continue
+			}
+			if err := am.keeper.BankKeeper().SendCoins(ctx, coinbaseAddress, coinbase, sdk.Coins{balance}); err != nil {
+				ctx.Logger().Error(fmt.Sprintf("failed to send ueni surplus from %s to coinbase account due to %s", coinbaseAddress.String(), err))
+			}
+		}
 		//surplus = surplus.Add(deferredInfo.Surplus)
 	}
 	//if surplus.IsPositive() {

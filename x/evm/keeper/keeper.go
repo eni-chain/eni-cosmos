@@ -94,6 +94,10 @@ func NewKeeper(
 	if !paramstore.HasKeyTable() {
 		paramstore = paramstore.WithKeyTable(types.ParamKeyTable())
 	}
+	queryConfig, err := querier.ReadConfig(nil)
+	if err != nil {
+		panic(err)
+	}
 	k := &Keeper{
 		storeKey:          storeKey,
 		transientStoreKey: transientStoreKey,
@@ -111,6 +115,7 @@ func NewKeeper(
 		cachedFeeCollectorAddressMtx: &sync.RWMutex{},
 		keyToNonce:                   make(map[tmtypes.TxKey]*AddressNoncePair),
 		//receiptStore:                 receiptStateStore,
+		QueryConfig: &queryConfig,
 	}
 	return k
 }
