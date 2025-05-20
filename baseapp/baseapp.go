@@ -4,13 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"github.com/cosmos/cosmos-sdk/x/evm/types"
 	"math"
 	"runtime"
 	"sort"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/cosmos/cosmos-sdk/x/evm/types"
 
 	"cosmossdk.io/core/header"
 	errorsmod "cosmossdk.io/errors"
@@ -807,7 +808,7 @@ func (app *BaseApp) deliverTx(ctx sdk.Context, tx []byte) *abci.ExecTxResult {
 		telemetry.SetGauge(float32(gInfo.GasWanted), "tx", "gas", "wanted")
 	}()
 
-	gInfo, result, anteEvents, _, err := app.runTx(ctx, execModeFinalize, tx)
+	gInfo, result, anteEvents, resCtx, err := app.runTx(ctx, execModeFinalize, tx)
 	if err != nil {
 		resultStr = "failed"
 		resp = sdkerrors.ResponseExecTxResultWithEvents(
@@ -826,7 +827,14 @@ func (app *BaseApp) deliverTx(ctx sdk.Context, tx []byte) *abci.ExecTxResult {
 		Data:      result.Data,
 		Events:    sdk.MarkEventsToIndex(result.Events, app.indexEvents),
 	}
-
+	if resCtx.IsEVM() {
+		resp.EvmTxInfo = &abci.EvmTxInfo{
+			SenderAddress: resCtx.EVMSenderAddress(),
+			Nonce:         resCtx.EVMNonce(),
+			TxHash:        resCtx.EVMTxHash(),
+			VmError:       resCtx.EVMVmError(),
+		}
+	}
 	return resp
 }
 
@@ -864,8 +872,8 @@ func (app *BaseApp) endBlock(_ context.Context) (sdk.EndBlock, error) {
 // returned if the tx does not run out of gas and if all the messages are valid
 // and execute successfully. An error is returned otherwise.
 func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo sdk.GasInfo, result *sdk.Result, anteEvents []abci.Event, //priority int64,
-	//pendingTxChecker abci.PendingTxChecker,
-	//expireHandler abci.ExpireTxHandler,
+//pendingTxChecker abci.PendingTxChecker,
+//expireHandler abci.ExpireTxHandler,
 	txCtx sdk.Context, err error) {
 	// NOTE: GasWanted should be returned by the AnteHandler. GasUsed is
 	// determined by the GasMeter. We need access to the context to get the gas
