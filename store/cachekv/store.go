@@ -53,6 +53,10 @@ func (store *Store) GetStoreType() types.StoreType {
 	return store.parent.GetStoreType()
 }
 
+func (store *Store) GetParent() types.KVStore {
+	return store.parent
+}
+
 // Get implements types.KVStore.
 func (store *Store) Get(key []byte) (value []byte) {
 	store.mtx.Lock()
