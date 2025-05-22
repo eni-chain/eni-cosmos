@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/cometbft/cometbft/crypto"
 	mathrand "math/rand"
 	"strings"
 	"testing"
@@ -557,4 +558,14 @@ func (s *addressTestSuite) TestGetFromBech32() {
 	_, err = types.GetFromBech32("cosmos1qqqsyqcyq5rqwzqfys8f67", "x")
 	s.Require().Error(err)
 	s.Require().Equal("invalid Bech32 prefix; expected x, got cosmos", err.Error())
+}
+
+func TestEvmAddress(t *testing.T) {
+	mKey := []byte("evm")
+	evmAddress := crypto.AddressHash(mKey)
+	add, err := types.Bech32ifyAddressBytes("eni", evmAddress)
+	if err != nil {
+		t.Fatal(err)
+	}
+	println(add)
 }

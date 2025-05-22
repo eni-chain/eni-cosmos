@@ -13,6 +13,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/evm/types"
 )
 
+var (
+// evmModuleAddress = "eni1vqu8rska6swzdmnhf90zuv0xmelej4lqdj955g"
+)
+
 // InitGenesis initializes the module's state from a provided genesis state.
 func InitGenesis(ctx sdk.Context, k *keeper.Keeper, genState types.GenesisState) {
 	k.InitGenesis(ctx, genState)
@@ -22,13 +26,29 @@ func InitGenesis(ctx sdk.Context, k *keeper.Keeper, genState types.GenesisState)
 	if len(initEniAddressList) != len(initEniAmountList) {
 		panic("InitEniAddress and InitEniAmount length not equal")
 	}
+	//The balance allocated to the evm module will be reallocated to the address we designed
+	evmSupply := uint256.MustFromDecimal("0")
 	for i, initEniAddress := range initEniAddressList {
 		initEniAmount := initEniAmountList[i]
 		if len(initEniAddress) == 0 || len(initEniAmount) == 0 {
 			continue
 		}
-		SetBalance(ctx, k, common.HexToAddress(initEniAddress), uint256.MustFromDecimal(initEniAmount))
+		amt := uint256.MustFromDecimal(initEniAmount)
+		SetBalance(ctx, k, common.HexToAddress(initEniAddress), amt)
+		evmSupply.Add(evmSupply, amt)
 	}
+
+	evmModuleAddress := k.AccountKeeper().GetModuleAccount(ctx, types.ModuleName).GetAddress()
+	balance := k.GetBalance(ctx, evmModuleAddress)
+	if balance.Cmp(evmSupply.ToBig()) != 0 {
+		panic("The balance of mint must be equal to that of mint in the bank module ")
+	} else { //Reset the balance allocated to the evm module to zero
+		err := k.BankKeeper().SetBalance(ctx, evmModuleAddress, sdk.NewCoin(k.GetBaseDenom(ctx), math.NewInt(0)))
+		if err != nil {
+			panic(err)
+		}
+	}
+	balance = k.GetBalance(ctx, evmModuleAddress)
 }
 func send(ctx sdk.Context, k *keeper.Keeper, from sdk.AccAddress, to sdk.AccAddress, amt *big.Int) error {
 	ueni := sdk.NewCoin(k.GetBaseDenom(ctx), math.NewIntFromBigIntMut(amt))
