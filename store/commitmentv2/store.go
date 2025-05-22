@@ -158,6 +158,7 @@ func (st *Store) Query(req *types.RequestQuery) (res *types.ResponseQuery, err e
 	if req.Height > 0 && req.Height != st.tree.Version() {
 		return QueryResult(fmt.Errorf("invalid height"), false), nil
 	}
+	res = &types.ResponseQuery{}
 	res.Height = st.tree.Version()
 
 	switch req.Path {
