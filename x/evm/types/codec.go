@@ -3,6 +3,8 @@ package types
 import (
 	"errors"
 	"fmt"
+
+	"github.com/cosmos/cosmos-sdk/codec"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
@@ -10,6 +12,26 @@ import (
 	"github.com/gogo/protobuf/proto"
 	// this line is used by starport scaffolding # 1
 )
+
+var (
+	// LegacyAmino is the Amino codec used for compatibility (e.g. with Ledger, CosmJS).
+	LegacyAmino = codec.NewLegacyAmino()
+)
+
+func init() {
+	RegisterLegacyAminoCodec(LegacyAmino)
+	sdk.RegisterLegacyAminoCodec(LegacyAmino)
+}
+
+// RegisterLegacyAminoCodec registers the necessary x/evm interfaces and concrete types
+// on the provided LegacyAmino codec. These types are used for Amino JSON serialization.
+func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
+	cdc.RegisterConcrete(&MsgEVMTransaction{}, "evm/MsgEVMTransaction", nil)
+	cdc.RegisterConcrete(&MsgSend{}, "evm/MsgSend", nil)
+	cdc.RegisterConcrete(&MsgRegisterPointer{}, "evm/MsgRegisterPointer", nil)
+	cdc.RegisterConcrete(&MsgAssociateContractAddress{}, "evm/MsgAssociateContractAddress", nil)
+	cdc.RegisterConcrete(&MsgAssociate{}, "evm/MsgAssociate", nil)
+}
 
 func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 	registry.RegisterImplementations((*sdk.Msg)(nil),
