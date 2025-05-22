@@ -64,12 +64,6 @@ func (store *Store) Get(key []byte) (value []byte) {
 
 	types.AssertValidKey(key)
 
-	//keyStr := string(key)
-	//if strings.HasSuffix(keyStr, "ueni") {
-	//	value, _ = hex.DecodeString("31303030303030303030303030303030303030")
-	//	store.setCacheValue(key, value, false)
-	//	return
-	//}
 	cacheValue, ok := store.cache[conv.UnsafeBytesToStr(key)]
 	if !ok {
 		value = store.parent.Get(key)
