@@ -139,7 +139,7 @@ func (s *DBImpl) Finalize() (surplus cosmossdk_io_math.Int, err error) {
 	// write cache to underlying
 	s.flushCtx(s.ctx)
 	// write all snapshotted caches in reverse order, except the very first one (base) which will be written by baseapp::runTx
-	for i := len(s.snapshottedCtxs) - 1; i > 0; i-- {
+	for i := len(s.snapshottedCtxs) - 1; i >= 0; i-- {
 		s.flushCtx(s.snapshottedCtxs[i])
 	}
 	// write all events in order
