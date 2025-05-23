@@ -138,7 +138,7 @@ func (s *DBImpl) Finalize() (surplus cosmossdk_io_math.Int, err error) {
 	// remove transient states
 	// write cache to underlying
 	s.flushCtx(s.ctx)
-	// write all snapshotted caches in reverse order, except the very first one (base) which will be written by baseapp::runTx
+	// write all snapshotted caches in reverse order
 	for i := len(s.snapshottedCtxs) - 1; i >= 0; i-- {
 		s.flushCtx(s.snapshottedCtxs[i])
 	}
