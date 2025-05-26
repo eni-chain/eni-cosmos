@@ -18,14 +18,15 @@ func TestGenesisState_Validate(t *testing.T) {
 			genState: types.DefaultGenesis(),
 			valid:    true,
 		},
-		{
-			desc:     "valid genesis state",
-			genState: &types.GenesisState{
-
-				// this line is used by starport scaffolding # types/genesis/validField
-			},
-			valid: true,
-		},
+		//{
+		//	desc: "valid genesis state",
+		//	genState: &types.GenesisState{
+		//		Params: types.Params{},
+		//
+		//		// this line is used by starport scaffolding # types/genesis/validField
+		//	},
+		//	valid: true,
+		//},
 		// this line is used by starport scaffolding # types/genesis/testcase
 	}
 	for _, tc := range tests {

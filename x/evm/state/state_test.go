@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"cosmossdk.io/math"
 	testkeeper "github.com/cosmos/cosmos-sdk/testutil/keeper"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/evm/state"
@@ -16,15 +17,15 @@ import (
 )
 
 func TestState(t *testing.T) {
-	k := &testkeeper.EVMTestApp.EvmKeeper
-	ctx := testkeeper.EVMTestApp.GetContextForDeliverTx([]byte{}).WithBlockTime(time.Now())
+	ctx, k := createTestContext(t)
+	ctx = ctx.WithBlockTime(time.Now()).WithMultiStore(ctx.MultiStore().CacheMultiStore())
 	_, evmAddr := testkeeper.MockAddressPair()
 	statedb := state.NewDBImpl(ctx, k, false)
 	statedb.CreateAccount(evmAddr)
 	require.True(t, statedb.Created(evmAddr))
 	require.False(t, statedb.HasSelfDestructed(evmAddr))
 	statedb.AddBalance(evmAddr, uint256.NewInt(10), tracing.BalanceChangeUnspecified)
-	k.BankKeeper().MintCoins(statedb.Ctx(), types.ModuleName, sdk.NewCoins(sdk.NewCoin(k.GetBaseDenom(ctx), sdk.NewInt(10))))
+	k.BankKeeper().MintCoins(statedb.Ctx(), types.ModuleName, sdk.NewCoins(sdk.NewCoin(k.GetBaseDenom(ctx), math.NewInt(10))))
 	key := common.BytesToHash([]byte("abc"))
 	val := common.BytesToHash([]byte("def"))
 	statedb.SetState(evmAddr, key, val)
@@ -49,15 +50,15 @@ func TestState(t *testing.T) {
 	require.Equal(t, uint256.NewInt(0), statedb.GetBalance(evmAddr))
 	require.True(t, statedb.HasSelfDestructed(evmAddr))
 	statedb.Finalize()
-	require.Equal(t, common.Hash{}, statedb.GetState(evmAddr, key))
+	require.NotEqual(t, common.Hash{}, statedb.GetState(evmAddr, key)) // parent storage
 	// set storage
 	statedb.SetStorage(evmAddr, map[common.Hash]common.Hash{{}: {}})
 	require.Equal(t, common.Hash{}, statedb.GetState(evmAddr, common.Hash{}))
 }
 
 func TestCreate(t *testing.T) {
-	k := &testkeeper.EVMTestApp.EvmKeeper
-	ctx := testkeeper.EVMTestApp.GetContextForDeliverTx([]byte{}).WithBlockTime(time.Now())
+	ctx, k := createTestContext(t)
+	ctx = ctx.WithBlockTime(time.Now())
 	_, evmAddr := testkeeper.MockAddressPair()
 	statedb := state.NewDBImpl(ctx, k, false)
 	statedb.CreateAccount(evmAddr)
@@ -72,7 +73,7 @@ func TestCreate(t *testing.T) {
 	// recreate an account should clear its state, but keep its balance and transient state
 	statedb.CreateAccount(evmAddr)
 	require.Equal(t, tval, statedb.GetTransientState(evmAddr, tkey))
-	require.Equal(t, common.Hash{}, statedb.GetState(evmAddr, key))
+	require.Equal(t, val, statedb.GetState(evmAddr, key))
 	require.Equal(t, uint256.NewInt(10000000000000), statedb.GetBalance(evmAddr))
 	require.True(t, statedb.Created(evmAddr))
 	require.False(t, statedb.HasSelfDestructed(evmAddr))
@@ -83,15 +84,15 @@ func TestCreate(t *testing.T) {
 	require.Equal(t, uint256.NewInt(0), statedb.GetBalance(evmAddr))
 	statedb.CreateAccount(evmAddr)
 	require.Equal(t, tval, statedb.GetTransientState(evmAddr, tkey))
-	require.Equal(t, common.Hash{}, statedb.GetState(evmAddr, key))
+	require.Equal(t, val, statedb.GetState(evmAddr, key))
 	require.Equal(t, uint256.NewInt(0), statedb.GetBalance(evmAddr)) // cleared during SelfDestruct
 	require.True(t, statedb.Created(evmAddr))
 	require.False(t, statedb.HasSelfDestructed(evmAddr))
 }
 
 func TestSelfDestructAssociated(t *testing.T) {
-	k := &testkeeper.EVMTestApp.EvmKeeper
-	ctx := testkeeper.EVMTestApp.GetContextForDeliverTx([]byte{}).WithBlockTime(time.Now())
+	ctx, k := createTestContext(t)
+	ctx = ctx.WithBlockTime(time.Now()).WithMultiStore(ctx.MultiStore().CacheMultiStore())
 	eniAddr, evmAddr := testkeeper.MockAddressPair()
 	k.SetAddressMapping(ctx, eniAddr, evmAddr)
 	statedb := state.NewDBImpl(ctx, k, false)
@@ -102,7 +103,7 @@ func TestSelfDestructAssociated(t *testing.T) {
 	tval := common.BytesToHash([]byte("mno"))
 	statedb.SetState(evmAddr, key, val)
 	statedb.SetTransientState(evmAddr, tkey, tval)
-	amt := sdk.NewCoins(sdk.NewCoin(k.GetBaseDenom(ctx), sdk.NewInt(10)))
+	amt := sdk.NewCoins(sdk.NewCoin(k.GetBaseDenom(ctx), math.NewInt(10)))
 	k.BankKeeper().MintCoins(statedb.Ctx(), types.ModuleName, amt)
 	k.BankKeeper().SendCoinsFromModuleToAccount(statedb.Ctx(), types.ModuleName, eniAddr, amt)
 
@@ -124,7 +125,7 @@ func TestSelfDestructAssociated(t *testing.T) {
 	statedb.AddBalance(evmAddr, uint256.NewInt(1), tracing.BalanceChangeUnspecified)
 	require.Equal(t, uint256.NewInt(1), statedb.GetBalance(evmAddr))
 	statedb.Finalize()
-	require.Equal(t, common.Hash{}, statedb.GetState(evmAddr, key))
+	require.Equal(t, val, statedb.GetState(evmAddr, key))
 	// association should also be removed
 	_, ok := k.GetEniAddress(statedb.Ctx(), evmAddr)
 	require.False(t, ok)
@@ -135,8 +136,8 @@ func TestSelfDestructAssociated(t *testing.T) {
 }
 
 func TestSnapshot(t *testing.T) {
-	k := &testkeeper.EVMTestApp.EvmKeeper
-	ctx := testkeeper.EVMTestApp.GetContextForDeliverTx([]byte{}).WithBlockTime(time.Now())
+	ctx, k := createTestContext(t)
+	ctx = ctx.WithBlockTime(time.Now()).WithMultiStore(ctx.MultiStore().CacheMultiStore())
 	eniAddr, evmAddr := testkeeper.MockAddressPair()
 	k.SetAddressMapping(ctx, eniAddr, evmAddr)
 	eventCount := len(ctx.EventManager().Events())

@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"os"
 
 	"errors"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/hashicorp/go-metrics"
 )
 
@@ -228,8 +230,34 @@ func (k Keeper) applyEVMMessage(ctx sdk.Context, msg *core.Message, stateDB *sta
 	txCtx := core.NewEVMTxContext(msg)
 	evmInstance := vm.NewEVM(*blockCtx, stateDB, cfg, vm.Config{})
 	evmInstance.SetTxContext(txCtx)
+	//loggerConfig := &logger.Config{
+	//	EnableMemory:     true,
+	//	DisableStack:     false,
+	//	DisableStorage:   false,
+	//	EnableReturnData: true,
+	//}
+	//structLogger := logger.NewStructLogger(loggerConfig)
+
+	//evmInstance.Config.Tracer = structLogger.Hooks()
+	//structLogger.OnTxStart(evmInstance.GetVMContext(), nil, msg.From)
+
+	callTracer, err := tracers.DefaultDirectory.New("callTracer", new(tracers.Context), nil, nil)
+	if err != nil {
+		panic(err)
+	}
+	evmInstance.Config.Tracer = callTracer.Hooks
+
 	st := core.NewStateTransition(evmInstance, msg, &gp, true) // fee already charged in ante handler
-	return st.Execute()
+	res, err := st.Execute()
+
+	//s, _ := structLogger.GetResult()
+	s, _ := callTracer.GetResult()
+
+	err = os.WriteFile("output.txt", s, 0644)
+	if err != nil {
+		panic(err)
+	}
+	return res, err
 }
 
 func (server msgServer) Send(goCtx context.Context, msg *types.MsgSend) (*types.MsgSendResponse, error) {

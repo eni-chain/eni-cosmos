@@ -93,16 +93,15 @@ func (k *Keeper) GetReceipt(ctx sdk.Context, txHash common.Hash) (*types.Receipt
 	//return &r, nil
 }
 
-//	MockReceipt sets a data structure that stores EVM specific transaction metadata.
-//
-// this is currently used by a number of tests to set receipts at the moment
-//func (k *Keeper) MockReceipt(ctx sdk.Context, txHash common.Hash, receipt *types.Receipt) error {
-//	fmt.Printf("MOCK RECEIPT height=%d, tx=%s\n", ctx.BlockHeight(), txHash.Hex())
-//	if err := k.SetTransientReceipt(ctx, txHash, receipt); err != nil {
-//		return err
-//	}
-//	return k.FlushTransientReceipts(ctx)
-//}
+//		MockReceipt sets a data structure that stores EVM specific transaction metadata.
+//	 this is currently used by a number of tests to set receipts at the moment
+func (k *Keeper) MockReceipt(ctx sdk.Context, txHash common.Hash, receipt *types.Receipt) error {
+	fmt.Printf("MOCK RECEIPT height=%d, tx=%s\n", ctx.BlockHeight(), txHash.Hex())
+	if err := k.SetTransientReceipt(ctx, txHash, receipt); err != nil {
+		return err
+	}
+	return k.FlushTransientReceipts(ctx)
+}
 
 func (k *Keeper) FlushTransientReceipts(ctx sdk.Context) error {
 	return nil

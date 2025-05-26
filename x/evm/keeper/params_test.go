@@ -3,14 +3,12 @@ package keeper_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
-	keepertest "github.com/cosmos/cosmos-sdk/testutil/keeper"
 	"github.com/cosmos/cosmos-sdk/x/evm/types"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetParams(t *testing.T) {
-	k, ctx := keepertest.EvmKeeper(t)
+	ctx, k := createTestContext(t)
 	params := types.DefaultParams()
 
 	require.EqualValues(t, params, k.GetParams(ctx))

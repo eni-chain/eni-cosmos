@@ -57,7 +57,6 @@ func (k *Keeper) AdjustDynamicBaseFeePerGas(ctx sdk.Context, blockGasUsed uint64
 	ctx.Logger().Info("AdjustDynamicBaseFeePerGas", "current block height", ctx.BlockHeight(), "set newBaseFee", newBaseFee)
 	// Set the new base fee for the next height
 	k.SetNextBaseFeePerGas(ctx, newBaseFee)
-
 	return &newBaseFee
 }
 

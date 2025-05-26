@@ -11,8 +11,8 @@ import (
 )
 
 func TestEventlessTransfer(t *testing.T) {
-	k := &testkeeper.EVMTestApp.EvmKeeper
-	ctx := testkeeper.EVMTestApp.GetContextForDeliverTx([]byte{}).WithBlockTime(time.Now())
+	ctx, k := createTestContext(t)
+	ctx = ctx.WithBlockTime(time.Now())
 	db := state.NewDBImpl(ctx, k, false)
 	_, fromAddr := testkeeper.MockAddressPair()
 	_, toAddr := testkeeper.MockAddressPair()

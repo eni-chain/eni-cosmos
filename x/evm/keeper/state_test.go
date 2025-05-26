@@ -2,7 +2,6 @@ package keeper_test
 
 import (
 	"testing"
-	"time"
 
 	testkeeper "github.com/cosmos/cosmos-sdk/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
@@ -10,8 +9,7 @@ import (
 )
 
 func TestState(t *testing.T) {
-	k := &testkeeper.EVMTestApp.EvmKeeper
-	ctx := testkeeper.EVMTestApp.GetContextForDeliverTx([]byte{}).WithBlockTime(time.Now())
+	ctx, k := createTestContext(t)
 	_, addr := testkeeper.MockAddressPair()
 
 	initialState := k.GetState(ctx, addr, common.HexToHash("0xabc"))

@@ -4,14 +4,13 @@ import (
 	"testing"
 	"time"
 
-	testkeeper "github.com/cosmos/cosmos-sdk/testutil/keeper"
 	"github.com/cosmos/cosmos-sdk/x/evm/state"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGasRefund(t *testing.T) {
-	k := &testkeeper.EVMTestApp.EvmKeeper
-	ctx := testkeeper.EVMTestApp.GetContextForDeliverTx([]byte{}).WithBlockTime(time.Now())
+	ctx, k := createTestContext(t)
+	ctx = ctx.WithBlockTime(time.Now())
 	statedb := state.NewDBImpl(ctx, k, false)
 
 	require.Equal(t, uint64(0), statedb.GetRefund())

@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	testkeeper "github.com/cosmos/cosmos-sdk/testutil/keeper"
 	"github.com/cosmos/cosmos-sdk/x/evm/state"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -12,8 +11,8 @@ import (
 )
 
 func TestAddLog(t *testing.T) {
-	k := &testkeeper.EVMTestApp.EvmKeeper
-	ctx := testkeeper.EVMTestApp.GetContextForDeliverTx([]byte{}).WithBlockTime(time.Now())
+	ctx, k := createTestContext(t)
+	ctx = ctx.WithBlockTime(time.Now())
 	statedb := state.NewDBImpl(ctx, k, false)
 
 	logs := statedb.GetAllLogs()
@@ -39,8 +38,8 @@ func TestAddLog(t *testing.T) {
 }
 
 func TestLogIndex(t *testing.T) {
-	k := &testkeeper.EVMTestApp.EvmKeeper
-	ctx := testkeeper.EVMTestApp.GetContextForDeliverTx([]byte{}).WithBlockTime(time.Now())
+	ctx, k := createTestContext(t)
+	ctx = ctx.WithBlockTime(time.Now())
 	statedb := state.NewDBImpl(ctx, k, false)
 	statedb.AddLog(&ethtypes.Log{})
 	statedb.Snapshot()

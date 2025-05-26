@@ -2,9 +2,10 @@ package state_test
 
 import (
 	"testing"
-	"time"
 
 	testkeeper "github.com/cosmos/cosmos-sdk/testutil/keeper"
+	"github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/evm/keeper"
 	"github.com/cosmos/cosmos-sdk/x/evm/state"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -12,9 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func createTestContext(t *testing.T) (types.Context, *keeper.Keeper) {
+	app, ctx := testkeeper.NewMockApp(t, false)
+	return ctx, app.GetEVMKeeper()
+}
+
 func TestAddAddressToAccessList(t *testing.T) {
-	k := &testkeeper.EVMTestApp.EvmKeeper
-	ctx := testkeeper.EVMTestApp.GetContextForDeliverTx([]byte{}).WithBlockTime(time.Now())
+	ctx, k := createTestContext(t)
 	statedb := state.NewDBImpl(ctx, k, false)
 
 	_, addr := testkeeper.MockAddressPair()
@@ -30,8 +35,7 @@ func TestAddAddressToAccessList(t *testing.T) {
 }
 
 func TestAddSlotToAccessList(t *testing.T) {
-	k := &testkeeper.EVMTestApp.EvmKeeper
-	ctx := testkeeper.EVMTestApp.GetContextForDeliverTx([]byte{}).WithBlockTime(time.Now())
+	ctx, k := createTestContext(t)
 	statedb := state.NewDBImpl(ctx, k, false)
 
 	_, addr := testkeeper.MockAddressPair()
@@ -48,8 +52,7 @@ func TestAddSlotToAccessList(t *testing.T) {
 }
 
 func TestAddSlotToAccessListWithNonExistentAddress(t *testing.T) {
-	k := &testkeeper.EVMTestApp.EvmKeeper
-	ctx := testkeeper.EVMTestApp.GetContextForDeliverTx([]byte{}).WithBlockTime(time.Now())
+	ctx, k := createTestContext(t)
 	statedb := state.NewDBImpl(ctx, k, false)
 
 	_, addr := testkeeper.MockAddressPair()
@@ -59,8 +62,7 @@ func TestAddSlotToAccessListWithNonExistentAddress(t *testing.T) {
 }
 
 func TestPrepare(t *testing.T) {
-	k := &testkeeper.EVMTestApp.EvmKeeper
-	ctx := testkeeper.EVMTestApp.GetContextForDeliverTx([]byte{}).WithBlockTime(time.Now())
+	ctx, k := createTestContext(t)
 	statedb := state.NewDBImpl(ctx, k, false)
 
 	_, sender := testkeeper.MockAddressPair()

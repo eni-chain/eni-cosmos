@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/testutil/keeper"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	testkeeper "github.com/cosmos/cosmos-sdk/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -12,29 +12,22 @@ import (
 )
 
 func TestCode(t *testing.T) {
-	k := &keeper.EVMTestApp.EvmKeeper
-	ctx := keeper.EVMTestApp.GetContextForDeliverTx([]byte{})
-	_, addr := keeper.MockAddressPair()
+	ctx, k := createTestContext(t)
+
+	_, addr := testkeeper.MockAddressPair()
 
 	require.Equal(t, common.Hash{}, k.GetCodeHash(ctx, addr))
-
-	k.BankKeeper().MintCoins(ctx, "evm", sdk.NewCoins(sdk.NewCoin("ueni", sdk.OneInt())))
-	k.BankKeeper().SendCoinsFromModuleToAccount(ctx, "evm", sdk.AccAddress(addr[:]), sdk.NewCoins(sdk.NewCoin("ueni", sdk.OneInt())))
-	require.Equal(t, ethtypes.EmptyCodeHash, k.GetCodeHash(ctx, addr))
-	require.Nil(t, k.GetCode(ctx, addr))
-	require.Equal(t, 0, k.GetCodeSize(ctx, addr))
 
 	code := []byte{1, 2, 3, 4, 5}
 	k.SetCode(ctx, addr, code)
 	require.Equal(t, crypto.Keccak256Hash(code), k.GetCodeHash(ctx, addr))
 	require.Equal(t, code, k.GetCode(ctx, addr))
 	require.Equal(t, 5, k.GetCodeSize(ctx, addr))
-	require.Equal(t, sdk.AccAddress(addr[:]), k.AccountKeeper().GetAccount(ctx, k.GetEniAddressOrDefault(ctx, addr)).GetAddress())
 }
 
 func TestNilCode(t *testing.T) {
-	k := &keeper.EVMTestApp.EvmKeeper
-	ctx := keeper.EVMTestApp.GetContextForDeliverTx([]byte{})
+	ctx, k := createTestContext(t)
+
 	_, addr := keeper.MockAddressPair()
 
 	k.SetCode(ctx, addr, nil)

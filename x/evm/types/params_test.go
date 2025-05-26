@@ -10,17 +10,15 @@ import (
 
 func TestDefaultParams(t *testing.T) {
 	require.Equal(t, types.Params{
-		//PriorityNormalizer:                     types.DefaultPriorityNormalizer,
-		//BaseFeePerGas:                          types.DefaultBaseFeePerGas,
-		//MinimumFeePerGas:                       types.DefaultMinFeePerGas,
-		//MaximumFeePerGas:                       types.DefaultMaxFeePerGas,
-		//DeliverTxHookWasmGasLimit:              types.DefaultDeliverTxHookWasmGasLimit,
-		//WhitelistedCwCodeHashesForDelegateCall: types.DefaultWhitelistedCwCodeHashesForDelegateCall,
-		//MaxDynamicBaseFeeUpwardAdjustment:      types.DefaultMaxDynamicBaseFeeUpwardAdjustment,
-		//MaxDynamicBaseFeeDownwardAdjustment:    types.DefaultMaxDynamicBaseFeeDownwardAdjustment,
-		//TargetGasUsedPerBlock:                  types.DefaultTargetGasUsedPerBlock,
-		//InitEniAddress:                         types.DefaultInitEniAddress,
-		//InitEniAmount:                          types.DefaultInitEniAmount,
+		PriorityNormalizer:                  types.DefaultPriorityNormalizer,
+		BaseFeePerGas:                       types.DefaultBaseFeePerGas,
+		MinimumFeePerGas:                    types.DefaultMinFeePerGas,
+		MaximumFeePerGas:                    types.DefaultMaxFeePerGas,
+		MaxDynamicBaseFeeUpwardAdjustment:   types.DefaultMaxDynamicBaseFeeUpwardAdjustment,
+		MaxDynamicBaseFeeDownwardAdjustment: types.DefaultMaxDynamicBaseFeeDownwardAdjustment,
+		TargetGasUsedPerBlock:               types.DefaultTargetGasUsedPerBlock,
+		InitEniAddress:                      "",
+		InitEniAmount:                       "",
 	}, types.DefaultParams())
 	require.Nil(t, types.DefaultParams().Validate())
 }
@@ -80,15 +78,6 @@ func TestValidateParamsInvalidMaxDynamicBaseFeeDownwardAdjustment(t *testing.T) 
 	require.Contains(t, err.Error(), "base fee adjustment must be less than or equal to 1")
 }
 
-func TestValidateParamsInvalidDeliverTxHookWasmGasLimit(t *testing.T) {
-	params := types.DefaultParams()
-	params.DeliverTxHookWasmGasLimit = 0 // Set to invalid value (0)
-
-	err := params.Validate()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid deliver_tx_hook_wasm_gas_limit: must be greater than 0")
-}
-
 func TestValidateParamsInvalidMaxFeePerGas(t *testing.T) {
 	params := types.DefaultParams()
 	params.MaximumFeePerGas = cosmossdk_io_math.LegacyNewDec(-1) // Set to invalid negative value
@@ -96,15 +85,4 @@ func TestValidateParamsInvalidMaxFeePerGas(t *testing.T) {
 	err := params.Validate()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "negative max fee per gas")
-}
-
-func TestValidateParamsValidDeliverTxHookWasmGasLimit(t *testing.T) {
-	params := types.DefaultParams()
-
-	//require.Equal(t, params.DeliverTxHookWasmGasLimit, types.DefaultDeliverTxHookWasmGasLimit)
-
-	params.DeliverTxHookWasmGasLimit = 100000 // Set to valid value
-
-	err := params.Validate()
-	require.NoError(t, err)
 }
