@@ -5,6 +5,7 @@ import (
 	modulev1 "cosmossdk.io/api/cosmos/evm/module"
 	"encoding/json"
 	"fmt"
+	"github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/cosmos/cosmos-sdk/x/evm/state"
 
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
@@ -116,6 +117,7 @@ type AppModule struct {
 	keeper        *keeper.Keeper
 	accountKeeper types.AccountKeeper
 	bankKeeper    types.BankKeeper
+	stakingKeeper types.StakingKeeper
 	// legacySubspace is used solely for migration of x/params managed parameters
 	legacySubspace exported.Subspace
 }
@@ -125,13 +127,16 @@ func NewAppModule(
 	keeper *keeper.Keeper,
 	accountKeeper types.AccountKeeper,
 	bankKeeper types.BankKeeper,
+	stakingKeeper types.StakingKeeper,
 	ls exported.Subspace,
+
 ) AppModule {
 	return AppModule{
 		AppModuleBasic: NewAppModuleBasic(cdc),
 		keeper:         keeper,
 		accountKeeper:  accountKeeper,
 		bankKeeper:     bankKeeper,
+		stakingKeeper:  stakingKeeper,
 		legacySubspace: ls,
 	}
 }
@@ -194,7 +199,16 @@ func (am AppModule) EndBlock(goCtx context.Context) error {
 		_ = am.keeper.AccountKeeper().GetModuleAddress(authtypes.FeeCollectorName)
 		header := ctx.BlockHeader()
 		proposerBytes := header.GetProposerAddress()
-		coinbase = sdk.AccAddress(proposerBytes)
+
+		validatorI, err := am.stakingKeeper.ValidatorByConsAddr(ctx, sdk.ConsAddress(proposerBytes))
+		if err != nil {
+			panic(err)
+		}
+		operator := validatorI.GetOperator()
+		coinbase, err = address.NewBech32Codec("eni" + "valoper").StringToBytes(operator)
+		if err != nil {
+			panic(err)
+		}
 	}
 	evmTxDeferredInfoList := am.keeper.GetAllEVMTxDeferredInfo(ctx)
 	denom := am.keeper.GetBaseDenom(ctx)
@@ -311,6 +325,7 @@ func ProvideModule(in ModuleInputs) ModuleOutputs {
 		k,
 		in.AccountKeeper,
 		in.BankKeeper,
+		in.StakingKeeper,
 		in.LegacySubspace,
 	)
 

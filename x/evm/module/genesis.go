@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -41,7 +42,7 @@ func InitGenesis(ctx sdk.Context, k *keeper.Keeper, genState types.GenesisState)
 	evmModuleAddress := k.AccountKeeper().GetModuleAccount(ctx, types.ModuleName).GetAddress()
 	balance := k.GetBalance(ctx, evmModuleAddress)
 	if balance.Cmp(evmSupply.ToBig()) != 0 {
-		panic("The balance of mint must be equal to that of mint in the bank module ")
+		panic(fmt.Sprintf("The balance of mint must be equal to that of mint in the bank module,except %s,get %s ", balance.String(), evmSupply.String()))
 	} else { //Reset the balance allocated to the evm module to zero
 		err := k.BankKeeper().SetBalance(ctx, evmModuleAddress, sdk.NewCoin(k.GetBaseDenom(ctx), math.NewInt(0)))
 		if err != nil {

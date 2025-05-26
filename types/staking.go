@@ -26,7 +26,8 @@ var (
 
 // TokensToConsensusPower - convert input tokens to potential consensus-engine power
 func TokensToConsensusPower(tokens, powerReduction sdkmath.Int) int64 {
-	return (tokens.Quo(powerReduction)).Int64()
+	//return (tokens.Quo(powerReduction)).Int64()
+	return int64(1) //In our design, the power of the validators is all 1
 }
 
 // TokensFromConsensusPower - convert input power to tokens
