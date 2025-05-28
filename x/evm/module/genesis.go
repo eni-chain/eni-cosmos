@@ -14,10 +14,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/evm/types"
 )
 
-var (
-// evmModuleAddress = "eni1vqu8rska6swzdmnhf90zuv0xmelej4lqdj955g"
-)
-
 // InitGenesis initializes the module's state from a provided genesis state.
 func InitGenesis(ctx sdk.Context, k *keeper.Keeper, genState types.GenesisState) {
 	k.InitGenesis(ctx, genState)

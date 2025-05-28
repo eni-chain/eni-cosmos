@@ -9,7 +9,12 @@ const DefaultIndex uint64 = 1
 func DefaultGenesis() *GenesisState {
 	return &GenesisState{
 		// this line is used by starport scaffolding # genesis/types/default
-		Params: DefaultParams(),
+		Params:              DefaultParams(),
+		AddressAssociations: make([]*AddressAssociation, 0),
+		Codes:               make([]*Code, 0),
+		States:              make([]*ContractState, 0),
+		Nonces:              make([]*Nonce, 0),
+		Serialized:          make([]*Serialized, 0),
 	}
 }
 
