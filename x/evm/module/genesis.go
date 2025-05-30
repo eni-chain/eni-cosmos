@@ -48,12 +48,12 @@ func InitGenesis(ctx sdk.Context, k *keeper.Keeper, genState types.GenesisState)
 	balance = k.GetBalance(ctx, evmModuleAddress)
 }
 func send(ctx sdk.Context, k *keeper.Keeper, from sdk.AccAddress, to sdk.AccAddress, amt *big.Int) error {
-	ueni := sdk.NewCoin(k.GetBaseDenom(ctx), math.NewIntFromBigIntMut(amt))
-	err := k.BankKeeper().SendCoins(ctx, from, to, sdk.NewCoins(ueni))
+	ENI := sdk.NewCoin(k.GetBaseDenom(ctx), math.NewIntFromBigIntMut(amt))
+	err := k.BankKeeper().SendCoins(ctx, from, to, sdk.NewCoins(ENI))
 	if err != nil {
 		return err
 	}
-	k.Logger().Info("genesis send", "from", from, "to", to, "amount", ueni)
+	k.Logger().Info("genesis send", "from", from, "to", to, "amount", ENI)
 	return nil
 }
 func getBalance(ctx sdk.Context, k *keeper.Keeper, evmAddr common.Address) *big.Int {

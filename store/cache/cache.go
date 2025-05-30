@@ -99,7 +99,7 @@ func (ckv *CommitKVStoreCache) Get(key []byte) []byte {
 	types.AssertValidKey(key)
 
 	keyStr := string(key)
-	//if strings.HasSuffix(keyStr, "ueni") {
+	//if strings.HasSuffix(keyStr, "ENI") {
 	//	value, _ := hex.DecodeString("31303030303030303030303030303030303030")
 	//	return value
 	//}

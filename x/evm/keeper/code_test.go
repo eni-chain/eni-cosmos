@@ -18,8 +18,8 @@ func TestCode(t *testing.T) {
 
 	require.Equal(t, common.Hash{}, k.GetCodeHash(ctx, addr))
 
-	k.BankKeeper().MintCoins(ctx, "evm", sdk.NewCoins(sdk.NewCoin("ueni", sdk.OneInt())))
-	k.BankKeeper().SendCoinsFromModuleToAccount(ctx, "evm", sdk.AccAddress(addr[:]), sdk.NewCoins(sdk.NewCoin("ueni", sdk.OneInt())))
+	k.BankKeeper().MintCoins(ctx, "evm", sdk.NewCoins(sdk.NewCoin("ENI", sdk.OneInt())))
+	k.BankKeeper().SendCoinsFromModuleToAccount(ctx, "evm", sdk.AccAddress(addr[:]), sdk.NewCoins(sdk.NewCoin("ENI", sdk.OneInt())))
 	require.Equal(t, ethtypes.EmptyCodeHash, k.GetCodeHash(ctx, addr))
 	require.Nil(t, k.GetCode(ctx, addr))
 	require.Equal(t, 0, k.GetCodeSize(ctx, addr))

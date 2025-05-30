@@ -8,7 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// UeniToSweiMultiplier Fields that were denominated in ueni will be converted to swei (1ueni = 10^12swei)
+// UeniToSweiMultiplier Fields that were denominated in ENI will be converted to swei (1ueni = 10^12swei)
 // for existing Ethereum application (which assumes 18 decimal points) to display properly.
 var UeniToSweiMultiplier = big.NewInt(1_000_000_000_000)
 var SdkUeniToSweiMultiplier = cosmossdk_io_math.NewIntFromBigInt(UeniToSweiMultiplier)

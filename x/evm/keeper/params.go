@@ -12,7 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/evm/types"
 )
 
-const BaseDenom = "ueni"
+const BaseDenom = "ENI"
 
 var Params types.Params
 
