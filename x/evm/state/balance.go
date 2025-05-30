@@ -100,7 +100,7 @@ func (s *DBImpl) SetBalance(evmAddr common.Address, amt *uint256.Int, reason tra
 	//	panic(s.err)
 	//}
 	a := amt.ToBig()
-	//coinsAmt := sdk.NewCoins(sdk.NewCoin(s.k.GetBaseDenom(s.ctx), ENI.Add(sdk.OneInt())))
+	//coinsAmt := sdk.NewCoins(sdk.NewCoin(s.k.GetBaseDenom(s.ctx), ueni.Add(sdk.OneInt())))
 	if err := s.k.BankKeeper().SetBalance(s.ctx, eniAddr, sdk.NewCoin(s.k.GetBaseDenom(s.ctx), math.NewIntFromBigInt(a))); err != nil {
 		panic(err)
 	}
@@ -118,8 +118,8 @@ func (s *DBImpl) getEniAddress(evmAddr common.Address) sdk.AccAddress {
 }
 
 //func (s *DBImpl) send(from sdk.AccAddress, to sdk.AccAddress, amt *big.Int) {
-//	ENI, wei := SplitUeniWeiAmount(amt)
-//	err := s.k.BankKeeper().SendCoinsAndWei(s.ctx, from, to, ENI, wei)
+//	ueni, wei := SplitUeniWeiAmount(amt)
+//	err := s.k.BankKeeper().SendCoinsAndWei(s.ctx, from, to, ueni, wei)
 //	if err != nil {
 //		s.err = err
 //	}

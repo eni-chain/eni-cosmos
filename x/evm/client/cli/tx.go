@@ -220,7 +220,7 @@ func extractPrivKeyFromLocal(rl *keyring.Record_Local) (cryptotypes.PrivKey, err
 func CmdSend() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "send [to EVM address] [amount in wei] --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url>",
-		Short: "send ENI to EVM address",
+		Short: "send ueni to EVM address",
 		Long:  "",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
@@ -253,7 +253,7 @@ func CmdSend() *cobra.Command {
 			if err == nil && balance != nil && balance.Cmp(big.NewInt(0)) > 0 {
 				toAddr := common.Address(to.Bytes())
 				//send bank transfer tx
-				msg := types.NewMsgSend(clientCtx.GetFromAddress(), toAddr, sdk.Coins{sdk.Coin{Denom: "ENI", Amount: math.NewIntFromBigInt(val)}})
+				msg := types.NewMsgSend(clientCtx.GetFromAddress(), toAddr, sdk.Coins{sdk.Coin{Denom: "ueni", Amount: math.NewIntFromBigInt(val)}})
 				return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
 
 			}

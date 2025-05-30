@@ -32,7 +32,7 @@ func NewParams() Params {
 
 var DefaultPriorityNormalizer = math.LegacyNewDec(1)
 
-// DefaultBaseFeePerGas determines how much ENI per gas spent is
+// DefaultBaseFeePerGas determines how much ueni per gas spent is
 // burnt rather than go to validators (similar to base fee on
 // Ethereum).
 var DefaultBaseFeePerGas = math.LegacyNewDec(0)         // used for static base fee, deprecated in favor of dynamic base fee

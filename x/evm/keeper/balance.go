@@ -11,8 +11,8 @@ func (k *Keeper) GetBalance(ctx sdk.Context, addr sdk.AccAddress) *big.Int {
 	allUeni := k.BankKeeper().GetBalance(ctx, addr, denom).Amount
 	return allUeni.BigInt()
 	//lockedUeni := k.BankKeeper().LockedCoins(ctx, addr).AmountOf(denom) // LockedCoins doesn't use iterators
-	//ENI := allUeni.Sub(lockedUeni)
+	//ueni := allUeni.Sub(lockedUeni)
 	////wei := k.BankKeeper().GetWeiBalance(ctx, addr)
 	//wei := k.bankKeeper.GetBalance(ctx, addr, denom)
-	//return ENI.Mul(state.SdkUeniToSweiMultiplier).Add(wei.Amount).BigInt()
+	//return ueni.Mul(state.SdkUeniToSweiMultiplier).Add(wei.Amount).BigInt()
 }

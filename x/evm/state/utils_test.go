@@ -45,8 +45,8 @@ func TestSplitUeniWeiAmount(t *testing.T) {
 			expectedWei: big.NewInt(789_123_456_789),
 		},
 	} {
-		ENI, wei := state.SplitUeniWeiAmount(test.amt)
-		require.Equal(t, test.expectedEni, ENI.BigInt())
+		ueni, wei := state.SplitUeniWeiAmount(test.amt)
+		require.Equal(t, test.expectedEni, ueni.BigInt())
 		require.Equal(t, test.expectedWei, wei.BigInt())
 	}
 }

@@ -235,7 +235,7 @@ func (am AppModule) EndBlock(goCtx context.Context) error {
 				continue
 			}
 			if err := am.keeper.BankKeeper().SendCoins(ctx, coinbaseAddress, coinbase, sdk.Coins{balance}); err != nil {
-				ctx.Logger().Error(fmt.Sprintf("failed to send ENI surplus from %s to coinbase account due to %s", coinbaseAddress.String(), err))
+				ctx.Logger().Error(fmt.Sprintf("failed to send ueni surplus from %s to coinbase account due to %s", coinbaseAddress.String(), err))
 			}
 		}
 		//surplus = surplus.Add(deferredInfo.Surplus)
@@ -245,7 +245,7 @@ func (am AppModule) EndBlock(goCtx context.Context) error {
 	//	if surplusUeni.GT(cosmossdk_io_math.ZeroInt()) {
 	//		// todo  check code correct
 	//		//if err := am.keeper.BankKeeper().AddCoins(ctx, am.keeper.AccountKeeper().GetModuleAddress(types.ModuleName), sdk.NewCoins(sdk.NewCoin(am.keeper.GetBaseDenom(ctx), surplusUeni)), true); err != nil {
-	//		//	ctx.Logger().Error("failed to send ENI surplus of %s to EVM module account", surplusUeni)
+	//		//	ctx.Logger().Error("failed to send ueni surplus of %s to EVM module account", surplusUeni)
 	//		//}
 	//	}
 	//	if surplusWei.GT(cosmossdk_io_math.ZeroInt()) {
