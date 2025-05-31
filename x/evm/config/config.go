@@ -10,9 +10,9 @@ const DefaultChainID = int64(0x697873)
 
 // ChainIDMapping is a mapping of cosmos chain IDs to their respective chain IDs.
 var ChainIDMapping = map[string]int64{
-	"eni-mainnet": int64(173),      //ENI
-	"eni-testnet": int64(174),      // ENI Testnet
-	"eni-devnet":  int64(0x697873), // ENI Devnet
+	"ENI Mainnet": int64(173),      // ENI Mainnet
+	"ENI Testnet": int64(174),      // ENI Testnet
+	"ENI Devnet":  int64(0x697873), // ENI Devnet
 }
 
 func GetEVMChainID(cosmosChainID string) *big.Int {
