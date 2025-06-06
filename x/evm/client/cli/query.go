@@ -6,9 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/big"
-	"os"
-
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/x/evm/artifacts/native"
@@ -16,6 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
+	"math/big"
+	"os"
 )
 
 const TrueStr = "true"
@@ -42,7 +41,7 @@ func GetQueryCmd() *cobra.Command {
 	cmd.AddCommand(CmdQueryPointer())
 	cmd.AddCommand(CmdQueryPointerVersion())
 	cmd.AddCommand(CmdQueryPointee())
-
+	cmd.AddCommand(NewQueryParamsCmd())
 	return cmd
 }
 
@@ -453,6 +452,38 @@ func CmdQueryPointee() *cobra.Command {
 	}
 
 	flags.AddQueryFlagsToCmd(cmd)
+
+	return cmd
+}
+
+// NewUpdateParamsCmd returns a CLI command handler for creating a MsgSend transaction.
+func NewQueryParamsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "query-params ",
+		Short: "QueryParams for evm module",
+		Long: `QueryParams the configuration of the evm module.
+`,
+		Args: cobra.ExactArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			msg := &types.QueryParamsRequest{}
+
+			queryClient := types.NewQueryClient(clientCtx)
+
+			res, err := queryClient.Params(context.Background(), msg)
+			if err != nil {
+				return err
+			}
+
+			return clientCtx.PrintProto(res)
+		},
+	}
+
+	flags.AddTxFlagsToCmd(cmd)
 
 	return cmd
 }

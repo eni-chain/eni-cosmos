@@ -1,5 +1,5 @@
 syntax = "proto3";
-package goeni.evm.module;
+package cosmos.evm.module;
 
 import "cosmos/app/v1alpha1/module.proto";
 

@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	errorsmod "cosmossdk.io/errors"
@@ -86,7 +87,7 @@ func GetTxCmd() *cobra.Command {
 	//cmd.AddCommand(NewAddERCNativePointerProposalTxCmd())
 	//cmd.AddCommand(AssociateContractAddressCmd())
 	//cmd.AddCommand(NativeAssociateCmd())
-
+	cmd.AddCommand(NewUpdateParamsCmd())
 	return cmd
 }
 
@@ -874,4 +875,73 @@ func sendTx(txData *ethtypes.DynamicFeeTx, rpcUrl string, key *ecdsa.PrivateKey,
 	println("send tx hexH = " + signedTx.Hash().Hex())
 
 	return hexTxHash, nil
+}
+
+// NewUpdateParamsCmd returns a CLI command handler for creating a MsgSend transaction.
+func NewUpdateParamsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-params [base_fee_per_gas] [maximum_fee_per_gas] [max_dynamic_base_fee_upward_adjustment] [max_dynamic_base_fee_downward_adjustment] [target_gas_used_per_block]",
+		Short: "UpdateParams for evm module",
+		Long: `Update the gas configuration of the evm module.
+`,
+		Args: cobra.ExactArgs(5),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			baseFee, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return errors.New("base_fee_per_gas must be a 64-bit integer,err:" + err.Error())
+			}
+
+			maxFee, err := strconv.ParseUint(args[1], 10, 64)
+			if err != nil {
+				return errors.New("maximum_fee_per_gas must be a 64-bit integer,err:" + err.Error())
+			}
+
+			if baseFee > maxFee {
+				return errors.New("maximum_fee_per_gas must greater than base_fee_per_gas ")
+			}
+			upward, err := strconv.ParseInt(args[2], 0, 32)
+			if err != nil {
+				return errors.New("max_dynamic_base_fee_upward_adjustment must be a 4-digit integer,err:" + err.Error())
+			} else if upward >= 10000 {
+				return errors.New("max_dynamic_base_fee_upward_adjustment must be a 4-digit integer,get:" + args[2])
+			}
+
+			downward, err := strconv.ParseInt(args[3], 0, 32)
+			if err != nil {
+				return errors.New("max_dynamic_base_fee_downward_adjustment must be a 4-digit integer,err:" + err.Error())
+			} else if downward >= 10000 {
+				return errors.New("max_dynamic_base_fee_downward_adjustment must be a 4-digit integer, get " + args[3])
+			}
+
+			gasUsed, err := strconv.ParseUint(args[4], 10, 64)
+			if err != nil {
+				return errors.New("target_gas_used_per_block parse uint failed,err:" + err.Error())
+			}
+
+			params := types.DefaultParams()
+
+			params.BaseFeePerGas = math.LegacyNewDecFromBigInt(big.NewInt(0).SetUint64(baseFee))
+			params.MinimumFeePerGas = math.LegacyNewDecFromBigInt(big.NewInt(0).SetUint64(baseFee))
+			params.MaximumFeePerGas = math.LegacyNewDecFromBigInt(big.NewInt(0).SetUint64(maxFee))
+			params.MaxDynamicBaseFeeUpwardAdjustment = math.LegacyNewDecWithPrec(upward, 4)
+			params.MaxDynamicBaseFeeDownwardAdjustment = math.LegacyNewDecWithPrec(downward, 4)
+			params.TargetGasUsedPerBlock = gasUsed
+
+			msg := &types.MsgUpdateParams{
+				Authority: clientCtx.GetFromAddress().String(),
+				Params:    params,
+			}
+
+			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
+		},
+	}
+
+	flags.AddTxFlagsToCmd(cmd)
+
+	return cmd
 }

@@ -1,11 +1,11 @@
 syntax = "proto3";
-package goeni.evm;
+package cosmos.evm;
 
 import "amino/amino.proto";
 import "gogoproto/gogo.proto";
-import "goeni/evm/params.proto";
+import "cosmos/evm/params.proto";
 
-option go_package = "github.com/eni-chain/go-eni/x/evm/types";
+option go_package = "github.com/eni-chain/eni-cosmos/x/evm/types";
 
 // GenesisState defines the evm module's genesis state.
 message GenesisState {

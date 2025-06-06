@@ -1,7 +1,7 @@
 syntax = "proto3";
-package goeni.evm;
+package cosmos.evm;
 
-option go_package = "github.com/eni-chain/go-eni/x/evm/types";
+option go_package = "github.com/eni-chain/eni-cosmos/x/evm/types";
 
 enum PointerType {
     ERC20 = 0;

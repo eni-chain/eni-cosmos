@@ -18,6 +18,8 @@ import (
 
 type status int32
 
+var taskIndex int64
+
 func (s status) String() string {
 	switch s {
 	case statusPendingInt:
@@ -493,13 +495,13 @@ func (s *scheduler) validateAll(ctx sdk.Context, tasks []*deliverTxTask) ([]*del
 // ExecuteAllWithDag executes all tasks concurrently
 func (s *scheduler) executeAllWithDag(ctx sdk.Context, tasks []*deliverTxTask, simpleDag []int64) error {
 	var iterations int
+	var batch int
 	if len(tasks) == 0 {
 		return nil
 	}
 	wg := &sync.WaitGroup{}
-
-	for i := 0; i < len(tasks); i += int(simpleDag[iterations]) {
-		batch := int(simpleDag[iterations])
+	for i := 0; i < len(tasks); i += batch {
+		batch = int(simpleDag[iterations])
 		end := i + batch
 		if end > len(tasks) {
 			end = len(tasks)

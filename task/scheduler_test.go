@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 )
@@ -401,4 +402,38 @@ func Benchmark_scheduler_ProcessAll_10000tx_16workers(b *testing.B) {
 
 	b.StopTimer()
 	b.ReportMetric(float64(txCount)/b.Elapsed().Seconds(), "tx/s")
+}
+
+func TestFor(t *testing.T) {
+	var iterations int
+	var batch int
+	tasks := make([]int, 4001)
+	println("tasks:", len(tasks))
+	simpleDag := []int{1, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400}
+
+	wg := &sync.WaitGroup{}
+
+	//for i := 0; i < len(tasks); i += simpleDag[iterations] {
+	for i := 0; i < len(tasks); i += batch {
+		batch = int(simpleDag[iterations])
+		end := i + batch
+		if end > len(tasks) {
+			end = len(tasks)
+		}
+		println("iterations: start ", iterations, " ", batch)
+		wg.Add(batch)
+
+		for j := i; j < end; j++ {
+			//t := tasks[j]
+			time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond)
+			wg.Done()
+		}
+		wg.Wait()
+		println("iterations: end ", iterations)
+		iterations++
+		if iterations >= len(simpleDag) {
+			break
+		}
+	}
+	println("iterations:", iterations)
 }

@@ -1,17 +1,17 @@
 syntax = "proto3";
-package goeni.evm;
+package cosmos.evm;
 
 import "google/protobuf/any.proto";
 import "amino/amino.proto";
 import "cosmos/msg/v1/msg.proto";
 import "cosmos_proto/cosmos.proto";
 import "gogoproto/gogo.proto";
-import "goeni/evm/params.proto";
+import "cosmos/evm/params.proto";
 import "cosmos/base/v1beta1/coin.proto";
-import "goeni/evm/enums.proto";
-import "goeni/evm/receipt.proto";
+import "cosmos/evm/enums.proto";
+import "cosmos/evm/receipt.proto";
 
-option go_package = "github.com/eni-chain/go-eni/x/evm/types";
+option go_package = "github.com/eni-chain/eni-cosmos/x/evm/types";
 
 // Msg defines the Msg service.
 service Msg {
@@ -22,7 +22,32 @@ service Msg {
   rpc RegisterPointer(MsgRegisterPointer) returns (MsgRegisterPointerResponse);
   rpc AssociateContractAddress(MsgAssociateContractAddress) returns (MsgAssociateContractAddressResponse);
   rpc Associate(MsgAssociate) returns (MsgAssociateResponse);
+  // UpdateParams defines a (governance) operation for updating the module
+  // parameters. The authority defaults to the x/gov module account.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
 }
+
+// MsgUpdateParams is the Msg/UpdateParams request type.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "goeni/x/epoch/MsgUpdateParams";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the module parameters to update.
+  //
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+message MsgUpdateParamsResponse {}
 
 message MsgEVMTransaction {
   option (cosmos.msg.v1.signer) = "sender";
