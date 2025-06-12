@@ -6,12 +6,12 @@ import (
 	"cosmossdk.io/store/multiversion"
 	"cosmossdk.io/store/multiversion/occ"
 	store "cosmossdk.io/store/types"
+	"encoding/hex"
 	"fmt"
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -629,7 +629,8 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 		return
 	}
 
-	if strings.Contains("0x4276fbf545c68ad7aca44c1411e3d790b43e6925b47df7301803919b02be2b20", task.Ctx.EVMTxHash()) {
+	if "7829e6cb1f0b6977c88644c6105e49f62f4a461c9f5c938269e5337d18d5566a" == hex.EncodeToString(task.Checksum[:]) {
+		s.loger.Info("executeTask check ", "index", task.AbsoluteIndex, "sum", hex.EncodeToString(task.Checksum[:]), "gasUsed ", resp.GasUsed)
 		resp.GasUsed = 1861176
 	}
 
