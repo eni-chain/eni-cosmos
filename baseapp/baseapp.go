@@ -864,8 +864,8 @@ func (app *BaseApp) endBlock(_ context.Context) (sdk.EndBlock, error) {
 // returned if the tx does not run out of gas and if all the messages are valid
 // and execute successfully. An error is returned otherwise.
 func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo sdk.GasInfo, result *sdk.Result, anteEvents []abci.Event, //priority int64,
-	//pendingTxChecker abci.PendingTxChecker,
-	//expireHandler abci.ExpireTxHandler,
+//pendingTxChecker abci.PendingTxChecker,
+//expireHandler abci.ExpireTxHandler,
 	txCtx sdk.Context, err error) {
 	// NOTE: GasWanted should be returned by the AnteHandler. GasUsed is
 	// determined by the GasMeter. We need access to the context to get the gas
@@ -968,6 +968,7 @@ func (app *BaseApp) runTx(ctx sdk.Context, mode execMode, txBytes []byte) (gInfo
 		gasWanted = ctx.GasMeter().Limit()
 
 		if err != nil {
+			ctx = ctx.WithGasMeter(storetypes.NewGasMeter(ctx.GasMeter().Limit()))
 			if mode == execModeReCheck {
 				// if the ante handler fails on recheck, we want to remove the tx from the mempool
 				if mempoolErr := app.mempool.Remove(tx); mempoolErr != nil {
