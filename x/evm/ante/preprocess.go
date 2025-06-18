@@ -82,7 +82,7 @@ func (p *EVMPreprocessDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate
 	}
 
 	//// use infinite gas meter for EVM transaction because EVM handles gas checking from within
-	//ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
+	ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
 	//
 	//derived := msg.Derived
 	//eniAddr := derived.SenderEniAddr
