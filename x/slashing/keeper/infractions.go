@@ -14,6 +14,8 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
+var FilterHeight = int64(100_0000)
+
 // HandleValidatorSignature handles a validator signature, must be called once per validator per block.
 func (k Keeper) HandleValidatorSignature(ctx context.Context, addr cryptotypes.Address, power int64, signed comet.BlockIDFlag) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
@@ -31,6 +33,10 @@ func (k Keeper) HandleValidatorSignature(ctx context.Context, addr cryptotypes.A
 
 	if isJailed {
 		return nil
+	}
+
+	if sdkCtx.BlockHeight() > FilterHeight {
+		return nil //During the mainnet test phase, turn off the slashing check
 	}
 
 	// fetch signing info

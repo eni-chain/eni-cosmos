@@ -218,15 +218,21 @@ func (fc *EVMPreprocessDecorator) AnteHandleFee(ctx sdk.Context, simulate bool, 
 	if balance.Amount.IsZero() {
 		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, "account "+msg.Derived.SenderEVMAddr.Hex()+" needs to have enough balance to cover the transaction fees")
 	}
+
 	mgval := new(big.Int).SetUint64(etx.Gas())
 	mgval.Mul(mgval, etx.GasPrice())
-	if balance.Amount.LT(cosmath.NewIntFromBigInt(mgval)) {
-		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, "account "+msg.Derived.SenderEVMAddr.Hex()+" needs to have enough balance to cover the transaction fees")
+	sumVal := new(big.Int).Add(mgval, txData.GetValue())
+	if balance.Amount.LT(cosmath.NewIntFromBigInt(sumVal)) {
+		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, "account "+msg.Derived.SenderEVMAddr.Hex()+" needs to have enough balance to cover the transaction fees and transfer value")
 	}
+
 	if !(ctx.IsCheckTx() && ctx.IsFastMempool()) {
 		balance.Amount = balance.Amount.Sub(cosmath.NewIntFromBigInt(mgval))
-		fc.evmKeeper.BankKeeper().SetBalance(ctx, msg.Derived.SenderEVMAddr[:], balance)
+		if err := fc.evmKeeper.BankKeeper().SetBalance(ctx, msg.Derived.SenderEVMAddr[:], balance); err != nil {
+			return ctx, sdkerrors.Wrap(coserrors.ErrLogic, err.Error())
+		}
 	}
+
 	// Make sure this transaction's nonce is correct.
 	if ctx.ExecMode() == sdk.ExecModeFinalize {
 		stNonce := fc.evmKeeper.GetNonce(ctx, msg.Derived.SenderEVMAddr)
@@ -240,6 +246,11 @@ func (fc *EVMPreprocessDecorator) AnteHandleFee(ctx sdk.Context, simulate bool, 
 			return ctx, fmt.Errorf("%w: address %v, nonce: %d", ErrNonceMax,
 				msg.Derived.SenderEVMAddr.Hex(), stNonce)
 		}
+	}
+
+	// Check whether the init code size has been exceeded.
+	if len(txData.GetData()) > params.MaxInitCodeSize {
+		return ctx, fmt.Errorf("code size %v limit %v", len(txData.GetData()), params.MaxInitCodeSize)
 	}
 	return ctx, nil
 
