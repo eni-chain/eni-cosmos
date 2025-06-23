@@ -223,7 +223,7 @@ func (fc *EVMPreprocessDecorator) AnteHandleFee(ctx sdk.Context, simulate bool, 
 	mgval.Mul(mgval, etx.GasPrice())
 	sumVal := new(big.Int).Add(mgval, txData.GetValue())
 	if balance.Amount.LT(cosmath.NewIntFromBigInt(sumVal)) {
-		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, "account "+msg.Derived.SenderEVMAddr.Hex()+" needs to have enough balance to cover the transaction fees and transfer value")
+		return ctx, sdkerrors.Wrap(coserrors.ErrInsufficientFunds, "account "+msg.Derived.SenderEVMAddr.Hex()+" needs to have enough balance to cover the transaction fees")
 	}
 
 	if !(ctx.IsCheckTx() && ctx.IsFastMempool()) {
