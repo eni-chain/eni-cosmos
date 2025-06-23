@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	gasParamsManager = "eni16hwsrl7v23mnf08ymu844n622sruyawn23dmd3"
+	gasParamsManager = "eni1wklu5t7ctecdlfr465lm6ms709xneg0rf45ajt"
 )
 
 func (msg msgServer) UpdateParams(goCtx context.Context, req *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
