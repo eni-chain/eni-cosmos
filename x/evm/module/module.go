@@ -6,10 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/cosmos/cosmos-sdk/codec/address"
-	"github.com/cosmos/cosmos-sdk/x/evm/state"
-
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	"github.com/cosmos/cosmos-sdk/x/evm/exported"
+	"github.com/cosmos/cosmos-sdk/x/evm/state"
 	"github.com/spf13/cobra"
 
 	"cosmossdk.io/core/appmodule"

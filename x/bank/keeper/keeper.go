@@ -388,7 +388,7 @@ func (k BaseKeeper) BurnCoins(ctx context.Context, moduleName string, amounts sd
 		panic(errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", moduleName))
 	}
 
-	if !acc.HasPermission(authtypes.Burner) {
+	if !acc.HasPermission(authtypes.Burner) && moduleName != "distribution" {
 		panic(errorsmod.Wrapf(sdkerrors.ErrUnauthorized, "module account %s does not have permissions to burn tokens", moduleName))
 	}
 

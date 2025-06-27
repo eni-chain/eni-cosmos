@@ -51,29 +51,77 @@ func (k msgServer) WithdrawDelegatorReward(ctx context.Context, msg *types.MsgWi
 		return nil, sdkerrors.ErrInvalidAddress.Wrapf("invalid validator address: %s", err)
 	}
 
-	delegatorAddress, err := k.authKeeper.AddressCodec().StringToBytes(msg.DelegatorAddress)
-	if err != nil {
-		return nil, sdkerrors.ErrInvalidAddress.Wrapf("invalid delegator address: %s", err)
+	acc := k.authKeeper.GetModuleAddress(types.ModuleName)
+	if acc == nil {
+		panic("module account distribution  does not exist")
 	}
 
-	amount, err := k.WithdrawDelegationRewards(ctx, delegatorAddress, valAddr)
+	coins := k.bankKeeper.GetAllBalances(ctx, acc)
+	err = k.bankKeeper.BurnCoins(ctx, types.ModuleName, coins)
 	if err != nil {
 		return nil, err
 	}
 
-	defer func() {
-		for _, a := range amount {
-			if a.Amount.IsInt64() {
-				telemetry.SetGaugeWithLabels(
-					[]string{"tx", "msg", "withdraw_reward"},
-					float32(a.Amount.Int64()),
-					[]metrics.Label{telemetry.NewLabel("denom", a.Denom)},
-				)
-			}
-		}
-	}()
+	err = k.SetValidatorAccumulatedCommission(ctx, valAddr, types.ValidatorAccumulatedCommission{})
+	if err != nil {
+		return nil, err
+	}
+	rewards, err := k.GetValidatorCurrentRewards(ctx, valAddr)
+	if err != nil {
+		return nil, err
+	}
+	rewards.Rewards = sdk.DecCoins{}
+	err = k.SetValidatorCurrentRewards(ctx, valAddr, rewards)
+	if err != nil {
+		return nil, err
+	}
+	err = k.SetValidatorOutstandingRewards(ctx, valAddr, types.ValidatorOutstandingRewards{})
+	if err != nil {
+		return nil, err
+	}
 
-	return &types.MsgWithdrawDelegatorRewardResponse{Amount: amount}, nil
+	feePool, err := k.FeePool.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	newPool, negative := feePool.CommunityPool.SafeSub(feePool.CommunityPool)
+	if negative {
+		return nil, types.ErrBadDistribution
+	}
+
+	feePool.CommunityPool = newPool
+
+	err = k.FeePool.Set(ctx, feePool)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.MsgWithdrawDelegatorRewardResponse{Amount: coins}, nil
+
+	//delegatorAddress, err := k.authKeeper.AddressCodec().StringToBytes(msg.DelegatorAddress)
+	//if err != nil {
+	//	return nil, sdkerrors.ErrInvalidAddress.Wrapf("invalid delegator address: %s", err)
+	//}
+	//
+	//amount, err := k.WithdrawDelegationRewards(ctx, delegatorAddress, valAddr)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//defer func() {
+	//	for _, a := range amount {
+	//		if a.Amount.IsInt64() {
+	//			telemetry.SetGaugeWithLabels(
+	//				[]string{"tx", "msg", "withdraw_reward"},
+	//				float32(a.Amount.Int64()),
+	//				[]metrics.Label{telemetry.NewLabel("denom", a.Denom)},
+	//			)
+	//		}
+	//	}
+	//}()
+	//
+	//return &types.MsgWithdrawDelegatorRewardResponse{Amount: amount}, nil
 }
 
 func (k msgServer) WithdrawValidatorCommission(ctx context.Context, msg *types.MsgWithdrawValidatorCommission) (*types.MsgWithdrawValidatorCommissionResponse, error) {

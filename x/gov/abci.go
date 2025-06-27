@@ -119,14 +119,14 @@ func EndBlocker(ctx sdk.Context, keeper *keeper.Keeper) error {
 
 			return false, err
 		}
-
 		var tagValue, logMsg string
 
 		passes, burnDeposits, tallyResults, err := keeper.Tally(ctx, proposal)
 		if err != nil {
+			logger.Error("gov module ActiveProposalsQueue", "proposal", proposal.Id, "error", err.Error())
 			return false, err
 		}
-
+		logger.Info("gov module ActiveProposalsQueue", "proposal", proposal.Id, "tallyResults", tallyResults.String())
 		// If an expedited proposal fails, we do not want to update
 		// the deposit at this point since the proposal is converted to regular.
 		// As a result, the deposits are either deleted or refunded in all cases

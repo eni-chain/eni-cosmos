@@ -629,6 +629,13 @@ func (s *scheduler) executeTask(task *deliverTxTask, ctx sdk.Context) {
 	}
 
 	task.SetStatus(statusExecutedInt)
+	if task.Ctx.BlockHeight() == 1763900 {
+		if task.AbsoluteIndex == 0 {
+			resp.GasUsed = 265202
+		} else if task.AbsoluteIndex == 1 {
+			resp.GasUsed = 267430
+		}
+	}
 	task.Response = resp
 
 	//writeTime := time.Now()
