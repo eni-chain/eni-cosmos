@@ -8,9 +8,9 @@ import (
 type Config struct {
 	// system contract admin address,address must is evm address
 	ContractAdminAddr string `mapstructure:"contract_admin_addr"`
-	//
+	// Skipping the starting height of signature check caused by validator node shutdown for slashing module
 	SlashingSkipHeight int64 `mapstructure:"slashing_skip_height"`
-	// evm module
+	// GasParams update manager address,address must is eni address for evm module
 	GasParamsManager string `mapstructure:"gas_params_manager"`
 }
 
