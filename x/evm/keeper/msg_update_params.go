@@ -5,15 +5,16 @@ import (
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/utils/config"
 	"github.com/cosmos/cosmos-sdk/x/evm/types"
 )
 
-var (
-	gasParamsManager = "eni1wklu5t7ctecdlfr465lm6ms709xneg0rf45ajt"
-)
-
 func (msg msgServer) UpdateParams(goCtx context.Context, req *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
-	if gasParamsManager != req.Authority {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	gasParamsManager := config.DefaultUpdateConfig.GasParamsManager
+
+	if gasParamsManager == req.Authority {
 		return nil, errorsmod.Wrapf(types.ErrInvalidGasManager, "invalid gas manager; expected %s, got %s", gasParamsManager, req.Authority)
 	}
 
@@ -28,8 +29,6 @@ func (msg msgServer) UpdateParams(goCtx context.Context, req *types.MsgUpdatePar
 	if req.Params.MaxDynamicBaseFeeDownwardAdjustment.GT(WBaseFee) {
 		return nil, errorsmod.Wrapf(types.ErrInvalidGasManager, "MaxDynamicBaseFeeDownwardAdjustment must less than 10k  ")
 	}
-
-	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	params := msg.GetParams(ctx)
 	ZeroBaseFee := math.LegacyNewDec(0)

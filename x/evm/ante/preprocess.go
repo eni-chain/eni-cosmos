@@ -222,7 +222,7 @@ func (fc *EVMPreprocessDecorator) AnteHandleFee(ctx sdk.Context, simulate bool, 
 	mgval := new(big.Int).SetUint64(etx.Gas())
 	mgval.Mul(mgval, etx.GasPrice())
 	sumVal := new(big.Int).Add(mgval, txData.GetValue())
-	if ctx.BlockHeight() == 1740389 || ctx.BlockHeight() == 1740533 {
+	if ctx.ChainID() == "ENI Mainnet" && (ctx.BlockHeight() == 1740389 || ctx.BlockHeight() == 1740533) {
 		sumVal = mgval
 	}
 	if balance.Amount.LT(cosmath.NewIntFromBigInt(sumVal)) {

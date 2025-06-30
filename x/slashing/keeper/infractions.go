@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"github.com/cosmos/cosmos-sdk/utils/config"
 
 	"github.com/cockroachdb/errors"
 
@@ -13,8 +14,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/slashing/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
-
-var FilterHeight = int64(1982800)
 
 // HandleValidatorSignature handles a validator signature, must be called once per validator per block.
 func (k Keeper) HandleValidatorSignature(ctx context.Context, addr cryptotypes.Address, power int64, signed comet.BlockIDFlag) error {
@@ -35,7 +34,7 @@ func (k Keeper) HandleValidatorSignature(ctx context.Context, addr cryptotypes.A
 		return nil
 	}
 
-	if sdkCtx.BlockHeight() > FilterHeight {
+	if sdkCtx.BlockHeight() > config.DefaultUpdateConfig.SlashingSkipHeight {
 		return nil //During the mainnet test phase, turn off the slashing check
 	}
 
