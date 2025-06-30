@@ -43,6 +43,11 @@ func (k msgServer) CreateValidator(ctx context.Context, msg *types.MsgCreateVali
 		return nil, err
 	}
 
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	if sdkCtx.BlockHeight() > 1 {
+		return nil, errorsmod.Wrapf(sdkerrors.ErrInvalidRequest, "CreateValidator is not supported for the time being")
+	}
+
 	minCommRate, err := k.MinCommissionRate(ctx)
 	if err != nil {
 		return nil, err
@@ -81,7 +86,7 @@ func (k msgServer) CreateValidator(ctx context.Context, msg *types.MsgCreateVali
 		return nil, err
 	}
 
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx = sdk.UnwrapSDKContext(ctx)
 	cp := sdkCtx.ConsensusParams()
 	if cp.Validator != nil {
 		pkType := pk.Type()
@@ -280,7 +285,10 @@ func (k msgServer) Delegate(ctx context.Context, msg *types.MsgDelegate) (*types
 			sdkerrors.ErrInvalidRequest, "invalid coin denomination: got %s, expected %s", msg.Amount.Denom, bondDenom,
 		)
 	}
-
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	if sdkCtx.BlockHeight() > 1 {
+		return nil, errorsmod.Wrap(sdkerrors.ErrInvalidRequest, "Delegate is not supported for the time being")
+	}
 	// NOTE: source funds are always unbonded
 	newShares, err := k.Keeper.Delegate(ctx, delegatorAddress, msg.Amount.Amount, types.Unbonded, validator, true)
 	if err != nil {
@@ -298,7 +306,7 @@ func (k msgServer) Delegate(ctx context.Context, msg *types.MsgDelegate) (*types
 		}()
 	}
 
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx = sdk.UnwrapSDKContext(ctx)
 	sdkCtx.EventManager().EmitEvents(sdk.Events{
 		sdk.NewEvent(
 			types.EventTypeDelegate,
