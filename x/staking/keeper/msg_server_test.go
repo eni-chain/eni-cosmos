@@ -38,6 +38,7 @@ func (s *KeeperTestSuite) TestMsgCreateValidator() {
 	pubkey, err := codectypes.NewAnyWithValue(pk1)
 	require.NoError(err)
 
+	ctx = ctx.WithBlockHeight(1)
 	testCases := []struct {
 		name      string
 		input     *stakingtypes.MsgCreateValidator
@@ -226,6 +227,64 @@ func (s *KeeperTestSuite) TestMsgCreateValidator() {
 			expErr: false,
 		},
 	}
+	for _, tc := range testCases {
+		tc := tc
+		s.T().Run(tc.name, func(t *testing.T) {
+			_, err := msgServer.CreateValidator(ctx, tc.input)
+			if tc.expErr {
+				require.Error(err)
+				require.Contains(err.Error(), tc.expErrMsg)
+			} else {
+				require.NoError(err)
+			}
+		})
+	}
+}
+
+func (s *KeeperTestSuite) TestMsgCreateValidatorForFilter() {
+	ctx, msgServer := s.ctx, s.msgServer
+	require := s.Require()
+	s.execExpectCalls()
+
+	pk1 := ed25519.GenPrivKey().PubKey()
+	require.NotNil(pk1)
+
+	pubkey, err := codectypes.NewAnyWithValue(pk1)
+	require.NoError(err)
+
+	testCases := []struct {
+		name      string
+		input     *stakingtypes.MsgCreateValidator
+		expErr    bool
+		expErrMsg string
+	}{
+		{
+			name: "valid msg",
+			input: &stakingtypes.MsgCreateValidator{
+				Description: stakingtypes.Description{
+					Moniker:         "NewValidator",
+					Identity:        "xyz",
+					Website:         "xyz.com",
+					SecurityContact: "xyz@gmail.com",
+					Details:         "details",
+				},
+				Commission: stakingtypes.CommissionRates{
+					Rate:          math.LegacyNewDecWithPrec(5, 1),
+					MaxRate:       math.LegacyNewDecWithPrec(5, 1),
+					MaxChangeRate: math.LegacyNewDec(0),
+				},
+				MinSelfDelegation: math.NewInt(1),
+				DelegatorAddress:  Addr.String(),
+				ValidatorAddress:  ValAddr.String(),
+				Pubkey:            pubkey,
+				Value:             sdk.NewInt64Coin("stake", 10000),
+			},
+			expErr:    true,
+			expErrMsg: "CreateValidator is not supported for the time being",
+		},
+	}
+
+	ctx = ctx.WithBlockHeight(2)
 	for _, tc := range testCases {
 		tc := tc
 		s.T().Run(tc.name, func(t *testing.T) {
@@ -534,6 +593,53 @@ func (s *KeeperTestSuite) TestMsgDelegate() {
 	}
 }
 
+func (s *KeeperTestSuite) TestMsgDelegateForFilter() {
+	ctx, keeper, msgServer := s.ctx, s.stakingKeeper, s.msgServer
+	require := s.Require()
+	s.execExpectCalls()
+
+	pk := ed25519.GenPrivKey().PubKey()
+	require.NotNil(pk)
+
+	comm := stakingtypes.NewCommissionRates(math.LegacyNewDec(0), math.LegacyNewDec(0), math.LegacyNewDec(0))
+
+	msg, err := stakingtypes.NewMsgCreateValidator(ValAddr.String(), pk, sdk.NewCoin("stake", math.NewInt(10)), stakingtypes.Description{Moniker: "NewVal"}, comm, math.OneInt())
+	require.NoError(err)
+
+	res, err := msgServer.CreateValidator(ctx, msg)
+	require.NoError(err)
+	require.NotNil(res)
+
+	testCases := []struct {
+		name      string
+		input     *stakingtypes.MsgDelegate
+		expErr    bool
+		expErrMsg string
+	}{{
+		name: "valid msg",
+		input: &stakingtypes.MsgDelegate{
+			DelegatorAddress: Addr.String(),
+			ValidatorAddress: ValAddr.String(),
+			Amount:           sdk.Coin{Denom: sdk.DefaultBondDenom, Amount: keeper.TokensFromConsensusPower(s.ctx, int64(100))},
+		},
+		expErr:    true,
+		expErrMsg: "Delegate is not supported for the time being",
+	}}
+
+	ctx = ctx.WithBlockHeight(2)
+	for _, tc := range testCases {
+		tc := tc
+		s.T().Run(tc.name, func(t *testing.T) {
+			_, err := msgServer.Delegate(ctx, tc.input)
+			if tc.expErr {
+				require.Error(err)
+				require.Contains(err.Error(), tc.expErrMsg)
+			} else {
+				require.NoError(err)
+			}
+		})
+	}
+}
 func (s *KeeperTestSuite) TestMsgBeginRedelegate() {
 	ctx, keeper, msgServer := s.ctx, s.stakingKeeper, s.msgServer
 	require := s.Require()
