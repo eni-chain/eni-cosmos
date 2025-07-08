@@ -223,18 +223,19 @@ func (am AppModule) EndBlock(goCtx context.Context) error {
 			})
 			continue
 		}
-		idx := int(deferredInfo.TxIndex)
-		coinbaseAddress := state.GetCoinbaseAddress(idx)
-		balances := am.keeper.BankKeeper().SpendableCoins(ctx, coinbaseAddress)
-		//weiBalance := am.keeper.BankKeeper().GetWeiBalance(ctx, coinbaseAddress)
-		//weiBalance := am.keeper.BankKeeper().GetBalance(ctx, coinbaseAddress, denom)
-		if !balances.IsZero() {
-			exist, balance := balances.Find(denom)
-			if !exist {
-				continue
-			}
-			if err := am.keeper.BankKeeper().SendCoins(ctx, coinbaseAddress, coinbase, sdk.Coins{balance}); err != nil {
-				ctx.Logger().Error(fmt.Sprintf("failed to send ueni surplus from %s to coinbase account due to %s", coinbaseAddress.String(), err))
+
+		if ctx.BlockHeight() > 100 || ctx.ChainID() != "ENI Testnet" {
+			idx := int(deferredInfo.TxIndex)
+			coinbaseAddress := state.GetCoinbaseAddress(idx)
+			balances := am.keeper.BankKeeper().SpendableCoins(ctx, coinbaseAddress)
+			if !balances.IsZero() {
+				exist, balance := balances.Find(denom)
+				if !exist {
+					continue
+				}
+				if err := am.keeper.BankKeeper().SendCoins(ctx, coinbaseAddress, coinbase, sdk.Coins{balance}); err != nil {
+					ctx.Logger().Error(fmt.Sprintf("failed to send ueni surplus from %s to coinbase account due to %s", coinbaseAddress.String(), err))
+				}
 			}
 		}
 		//surplus = surplus.Add(deferredInfo.Surplus)
