@@ -192,6 +192,25 @@ func (s *DBImpl) Copy() vm.StateDB {
 }
 
 func (s *DBImpl) Finalise(bool) {
+	// remove transient states
+	// write cache to underlying
+	s.flushCtx(s.ctx)
+	// write all snapshotted caches in reverse order
+	for i := len(s.snapshottedCtxs) - 1; i >= 0; i-- {
+		s.flushCtx(s.snapshottedCtxs[i])
+	}
+	// write all events in order
+	for i := 1; i < len(s.snapshottedCtxs); i++ {
+		s.flushEvents(s.snapshottedCtxs[i])
+	}
+	s.flushEvents(s.ctx)
+
+	snapshottedCtxs := s.snapshottedCtxs
+	if len(s.snapshottedCtxs) > 0 {
+		snapshottedCtxs = s.snapshottedCtxs[:1]
+	}
+
+	s.snapshottedCtxs = snapshottedCtxs
 	s.ctx.Logger().Info("Finalise should only be called during simulation and will no-op")
 }
 
