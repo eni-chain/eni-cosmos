@@ -14,7 +14,7 @@ func (msg msgServer) UpdateParams(goCtx context.Context, req *types.MsgUpdatePar
 
 	gasParamsManager := config.DefaultUpdateConfig.GasParamsManager
 
-	if gasParamsManager == req.Authority {
+	if gasParamsManager != req.Authority {
 		return nil, errorsmod.Wrapf(types.ErrInvalidGasManager, "invalid gas manager; expected %s, got %s", gasParamsManager, req.Authority)
 	}
 
