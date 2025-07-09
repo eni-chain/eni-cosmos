@@ -120,6 +120,10 @@ func NewKeeper(
 	return k
 }
 
+func (k *Keeper) Codec() codec.BinaryCodec {
+	return k.cdc
+}
+
 func (k *Keeper) AccountKeeper() *authkeeper.AccountKeeper {
 	return k.accountKeeper
 }
