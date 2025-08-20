@@ -14,6 +14,7 @@ type Contract struct {
 	Code   string
 	Abi    abi.ABI
 	Pruned []byte
+	Hash   common.Hash
 }
 
 var Contracts []*Contract

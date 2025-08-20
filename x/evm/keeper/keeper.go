@@ -142,10 +142,12 @@ func (k *Keeper) Prune(ctx sdk.Context) {
 		}
 
 		body, err := k.CallEVM(ctx, common.Address(caller), nil, nil, code)
+
 		if err != nil {
 			panic(fmt.Errorf("failed to execute contract constructor: %s", err.Error()))
 		}
 		contract.Pruned = body
+		contract.Hash = crypto.Keccak256Hash(body)
 
 		//todo: wait real particular contract for next operation
 		//k.SetCode(ctx, contract.Addr, body)

@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"github.com/cosmos/cosmos-sdk/x/evm/particular"
 
 	"errors"
 	"fmt"
@@ -229,12 +230,14 @@ func (k Keeper) applyEVMMessage(ctx sdk.Context, msg *core.Message, stateDB *sta
 	evmInstance := vm.NewEVM(*blockCtx, stateDB, cfg, vm.Config{})
 	evmInstance.SetTxContext(txCtx)
 	st := core.NewStateTransition(evmInstance, msg, &gp, true) // fee already charged in ante handler
-	waitUpgradeAddr := common.BytesToAddress([]byte("waitUpgradeAddr"))
-	if msg.To.Cmp(waitUpgradeAddr) == 0 {
-		oldHash := k.GetCodeHash(ctx, *msg.To)
-		waitUpgradeCodeHash := common.BytesToHash([]byte("waitUpgradeCodeHash"))
-		if oldHash.Cmp(waitUpgradeCodeHash) != 0 {
-			k.SetCode(ctx, *msg.To, []byte("waitUpgradeBytecode"))
+	if msg.To != nil {
+		for _, c := range particular.Contracts {
+			if msg.To.Cmp(c.Addr) == 0 {
+				oldHash := k.GetCodeHash(ctx, *msg.To)
+				if oldHash.Cmp(c.Hash) != 0 {
+					k.SetCode(ctx, *msg.To, c.Pruned)
+				}
+			}
 		}
 	}
 	return st.Execute()
