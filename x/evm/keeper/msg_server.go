@@ -2,7 +2,11 @@ package keeper
 
 import (
 	"context"
+	"encoding/hex"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/evm/particular"
+	"github.com/ethereum/go-ethereum/crypto"
+	"strings"
 
 	"errors"
 	"fmt"
@@ -220,6 +224,42 @@ func BigMin(x, y *big.Int) *big.Int {
 	}
 	return x
 }
+
+func (k Keeper) upgradeParticularContract(ctx sdk.Context, msg *core.Message) {
+	if msg.To == nil {
+		return
+	}
+
+	for _, c := range particular.Contracts {
+		if msg.To.Cmp(c.Addr) != 0 {
+			continue
+		}
+
+		oldHash := k.GetCodeHash(ctx, *msg.To)
+		if c.Hash.Cmp(oldHash) == 0 {
+			//already upgrade, so do nothing and skipped
+			continue
+		}
+
+		code, err := hex.DecodeString(strings.TrimSpace(c.Code))
+		if err != nil {
+			panic(fmt.Errorf("failed to decode new contract code: %s", err.Error()))
+		}
+
+		caller := k.AccountKeeper().GetModuleAddress(authtypes.FeeCollectorName)
+		body, err := k.CallEVM(ctx, common.Address(caller), nil, nil, code)
+		if err != nil {
+			panic(fmt.Errorf("failed to execute contract constructor: %s", err.Error()))
+		}
+
+		//c.Pruned = body
+		c.Hash = crypto.Keccak256Hash(body)
+		//if c.Hash.Cmp(oldHash) != 0 {
+		k.SetCode(ctx, *msg.To, body)
+		//}
+	}
+}
+
 func (k Keeper) applyEVMMessage(ctx sdk.Context, msg *core.Message, stateDB *state.DBImpl, gp core.GasPool) (*core.ExecutionResult, error) {
 	blockCtx, err := k.GetVMBlockContext(ctx, gp)
 	if err != nil {
@@ -230,16 +270,7 @@ func (k Keeper) applyEVMMessage(ctx sdk.Context, msg *core.Message, stateDB *sta
 	evmInstance := vm.NewEVM(*blockCtx, stateDB, cfg, vm.Config{})
 	evmInstance.SetTxContext(txCtx)
 	st := core.NewStateTransition(evmInstance, msg, &gp, true) // fee already charged in ante handler
-	if msg.To != nil {
-		for _, c := range particular.Contracts {
-			if msg.To.Cmp(c.Addr) == 0 {
-				oldHash := k.GetCodeHash(ctx, *msg.To)
-				if oldHash.Cmp(c.Hash) != 0 {
-					k.SetCode(ctx, *msg.To, c.Pruned)
-				}
-			}
-		}
-	}
+	k.upgradeParticularContract(ctx, msg)
 	return st.Execute()
 }
 
