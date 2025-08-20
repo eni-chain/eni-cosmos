@@ -229,6 +229,14 @@ func (k Keeper) applyEVMMessage(ctx sdk.Context, msg *core.Message, stateDB *sta
 	evmInstance := vm.NewEVM(*blockCtx, stateDB, cfg, vm.Config{})
 	evmInstance.SetTxContext(txCtx)
 	st := core.NewStateTransition(evmInstance, msg, &gp, true) // fee already charged in ante handler
+	waitUpgradeAddr := common.BytesToAddress([]byte("waitUpgradeAddr"))
+	if msg.To.Cmp(waitUpgradeAddr) == 0 {
+		oldHash := k.GetCodeHash(ctx, *msg.To)
+		waitUpgradeCodeHash := common.BytesToHash([]byte("waitUpgradeCodeHash"))
+		if oldHash.Cmp(waitUpgradeCodeHash) != 0 {
+			k.SetCode(ctx, *msg.To, []byte("waitUpgradeBytecode"))
+		}
+	}
 	return st.Execute()
 }
 
