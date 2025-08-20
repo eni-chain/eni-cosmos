@@ -2,11 +2,15 @@ package keeper
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/cosmos/cosmos-sdk/x/evm/particular"
 	"math"
 	"math/big"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 
 	"cosmossdk.io/log"
@@ -89,7 +93,7 @@ func NewKeeper(
 	storeKey storetypes.StoreKey, transientStoreKey storetypes.StoreKey, paramstore exported.Subspace, //receiptStateStore enidbtypes.StateStore,
 	bankKeeper bankkeeper.Keeper, accountKeeper *authkeeper.AccountKeeper, stakingKeeper *stakingkeeper.Keeper,
 	cdc codec.BinaryCodec, logger log.Logger,
-// transferKeeper ibctransferkeeper.Keeper
+	// transferKeeper ibctransferkeeper.Keeper
 ) *Keeper {
 	if !paramstore.HasKeyTable() {
 		paramstore = paramstore.WithKeyTable(types.ParamKeyTable())
@@ -118,6 +122,43 @@ func NewKeeper(
 		QueryConfig: &queryConfig,
 	}
 	return k
+}
+
+func (k *Keeper) Prune(ctx sdk.Context) {
+	if particular.Contracts == nil {
+		k.Logger().Info("empty contracts config", "height", ctx.BlockHeight())
+		return
+	}
+
+	k.Logger().Info(fmt.Sprintf("pruning particular contracts at height %d", ctx.BlockHeight()))
+
+	caller := k.AccountKeeper().GetModuleAddress(authtypes.FeeCollectorName)
+	for _, contract := range particular.Contracts {
+		k.Logger().Info(fmt.Sprintf("pruning contract %s", contract.Addr.String()))
+
+		code, err := hex.DecodeString(strings.TrimSpace(contract.Code))
+		if err != nil {
+			panic(fmt.Errorf("failed to decode new contract code: %s", err.Error()))
+		}
+
+		body, err := k.CallEVM(ctx, common.Address(caller), nil, nil, code)
+		if err != nil {
+			panic(fmt.Errorf("failed to execute contract constructor: %s", err.Error()))
+		}
+		contract.Pruned = body
+
+		//todo: wait real particular contract for next operation
+		//k.SetCode(ctx, contract.Addr, body)
+		//calldata, err := contract.Abi.Pack("init", abi.Argument{})
+		//if err != nil {
+		//	panic(fmt.Errorf("failed to pack calldata: %s", err.Error()))
+		//}
+
+		//_, err = k.CallEVM(ctx, common.Address(caller), &contract.Addr, nil, calldata)
+		//if err != nil {
+		//	panic(fmt.Errorf("failed to execute contract init: %s", err.Error()))
+		//}
+	}
 }
 
 func (k *Keeper) Codec() codec.BinaryCodec {
