@@ -236,6 +236,9 @@ func (k Keeper) upgradeParticularContract(ctx sdk.Context, msg *core.Message) {
 			continue
 		}
 
+		//Prevent repeated upgrades after a restart.
+		//If the code hash is not stored, it will be reset to empty each time the node restarts, which will cause
+		//different comparisons of the code hash, and subsequently lead to repeated trimming of the bytecode.
 		if c.Hash[0] == 0 {
 			bz := k.PrefixStore(ctx, types.CodeHashKeyPrefix).Get(append(c.Addr[:], upKey...))
 			if bz != nil {
