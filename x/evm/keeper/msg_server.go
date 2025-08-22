@@ -230,9 +230,17 @@ func (k Keeper) upgradeParticularContract(ctx sdk.Context, msg *core.Message) {
 		return
 	}
 
+	upKey := []byte(particular.UpgradeContractKey)
 	for _, c := range particular.Contracts {
 		if msg.To.Cmp(c.Addr) != 0 {
 			continue
+		}
+
+		if c.Hash[0] == 0 {
+			bz := k.PrefixStore(ctx, types.CodeHashKeyPrefix).Get(append(c.Addr[:], upKey...))
+			if bz != nil {
+				c.Hash = common.BytesToHash(bz)
+			}
 		}
 
 		oldHash := k.GetCodeHash(ctx, *msg.To)
@@ -265,6 +273,7 @@ func (k Keeper) upgradeParticularContract(ctx sdk.Context, msg *core.Message) {
 
 		//c.Pruned = body
 		c.Hash = crypto.Keccak256Hash(body)
+		k.PrefixStore(ctx, types.CodeHashKeyPrefix).Set(append(c.Addr[:], upKey...), c.Hash[:])
 		//if c.Hash.Cmp(oldHash) != 0 {
 		k.SetCode(ctx, *msg.To, body)
 		//}
