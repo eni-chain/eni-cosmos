@@ -22,7 +22,7 @@ var Contracts []*Contract
 var logger = log.NewLogger(os.Stdout)
 
 func init() {
-	erc20ABI, err := abi.JSON(strings.NewReader(ERC20ABI))
+	erc20ABI, err := abi.JSON(strings.NewReader(WrappedTokenV2ABI))
 	if err != nil {
 		logger.Error(fmt.Sprintf("parse erc20 contract abi failed:%v", err.Error()))
 	}
@@ -39,8 +39,8 @@ func init() {
 
 	Contracts = []*Contract{
 		{
-			Addr: common.HexToAddress(Erc20Addr),
-			Code: Erc20Bytecode,
+			Addr: common.HexToAddress(WrappedTokenV2Addr),
+			Code: WrappedTokenV2Bytecode,
 			Abi:  erc20ABI,
 		},
 		{
