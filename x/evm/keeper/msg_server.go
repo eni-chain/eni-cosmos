@@ -247,6 +247,17 @@ func (k Keeper) upgradeParticularContract(ctx sdk.Context, msg *core.Message) {
 		}
 
 		caller := k.AccountKeeper().GetModuleAddress(authtypes.FeeCollectorName)
+		if common.HexToAddress(particular.WrappedTokenV2Addr).Cmp(c.Addr) == 0 {
+			totalSupply := big.NewInt(0)
+			totalSupply.SetString("100000000000000000000000000", 10)
+			calldata, err := c.Abi.Pack("", "xxx", "yyy", totalSupply, common.HexToAddress("0x3140aedbf686A3150060Cb946893b0598b266f5C"))
+			if err != nil {
+				panic(fmt.Errorf("failed to pack calldata ", err.Error()))
+			}
+
+			code = append(code, calldata...)
+		}
+
 		body, err := k.CallEVM(ctx, common.Address(caller), nil, nil, code)
 		if err != nil {
 			panic(fmt.Errorf("failed to execute contract constructor: %s", err.Error()))
