@@ -225,7 +225,33 @@ func BigMin(x, y *big.Int) *big.Int {
 	return x
 }
 
-func (k Keeper) upgradeParticularContract(ctx sdk.Context, msg *core.Message) {
+func getContractBody(k *Keeper, ctx *sdk.Context, c *particular.Contract) []byte {
+	code, err := hex.DecodeString(strings.TrimSpace(c.Code))
+	if err != nil {
+		panic(fmt.Errorf("failed to decode new contract code: %s", err.Error()))
+	}
+
+	//if common.HexToAddress(particular.EniPegUSDTAddr).Cmp(c.Addr) == 0 {
+	totalSupply := big.NewInt(0)
+	totalSupply.SetString(c.Args.Supply, 10)
+	calldata, err := c.Abi.Pack("", c.Args.Name, c.Args.Symbol, totalSupply, c.Args.Holder)
+	if err != nil {
+		panic(fmt.Errorf("failed to pack calldata ", err.Error()))
+	}
+
+	code = append(code, calldata...)
+	//}
+
+	caller := k.AccountKeeper().GetModuleAddress(authtypes.FeeCollectorName)
+	body, err := k.CallEVM(*ctx, common.Address(caller), nil, nil, code)
+	if err != nil {
+		panic(fmt.Errorf("failed to execute contract constructor: %s", err.Error()))
+	}
+
+	return body
+}
+
+func (k *Keeper) upgradeParticularContract(ctx sdk.Context, msg *core.Message) {
 	if msg.To == nil {
 		return
 	}
@@ -252,27 +278,7 @@ func (k Keeper) upgradeParticularContract(ctx sdk.Context, msg *core.Message) {
 			continue
 		}
 
-		code, err := hex.DecodeString(strings.TrimSpace(c.Code))
-		if err != nil {
-			panic(fmt.Errorf("failed to decode new contract code: %s", err.Error()))
-		}
-
-		caller := k.AccountKeeper().GetModuleAddress(authtypes.FeeCollectorName)
-		if common.HexToAddress(particular.WrappedTokenV2Addr).Cmp(c.Addr) == 0 {
-			totalSupply := big.NewInt(0)
-			totalSupply.SetString("100000000000000000000000000", 10)
-			calldata, err := c.Abi.Pack("", "xxx", "yyy", totalSupply, common.HexToAddress("0x3140aedbf686A3150060Cb946893b0598b266f5C"))
-			if err != nil {
-				panic(fmt.Errorf("failed to pack calldata ", err.Error()))
-			}
-
-			code = append(code, calldata...)
-		}
-
-		body, err := k.CallEVM(ctx, common.Address(caller), nil, nil, code)
-		if err != nil {
-			panic(fmt.Errorf("failed to execute contract constructor: %s", err.Error()))
-		}
+		body := getContractBody(k, &ctx, c)
 
 		//c.Pruned = body
 		c.Hash = crypto.Keccak256Hash(body)

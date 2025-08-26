@@ -146,7 +146,7 @@ func (k *Keeper) Prune(ctx sdk.Context) {
 		if err != nil {
 			panic(fmt.Errorf("failed to execute contract constructor: %s", err.Error()))
 		}
-		contract.Pruned = body
+		contract.Body = body
 		contract.Hash = crypto.Keccak256Hash(body)
 	}
 }
