@@ -93,7 +93,7 @@ func NewKeeper(
 	storeKey storetypes.StoreKey, transientStoreKey storetypes.StoreKey, paramstore exported.Subspace, //receiptStateStore enidbtypes.StateStore,
 	bankKeeper bankkeeper.Keeper, accountKeeper *authkeeper.AccountKeeper, stakingKeeper *stakingkeeper.Keeper,
 	cdc codec.BinaryCodec, logger log.Logger,
-	// transferKeeper ibctransferkeeper.Keeper
+// transferKeeper ibctransferkeeper.Keeper
 ) *Keeper {
 	if !paramstore.HasKeyTable() {
 		paramstore = paramstore.WithKeyTable(types.ParamKeyTable())
@@ -148,18 +148,6 @@ func (k *Keeper) Prune(ctx sdk.Context) {
 		}
 		contract.Pruned = body
 		contract.Hash = crypto.Keccak256Hash(body)
-
-		//todo: wait real particular contract for next operation
-		//k.SetCode(ctx, contract.Addr, body)
-		//calldata, err := contract.Abi.Pack("init", abi.Argument{})
-		//if err != nil {
-		//	panic(fmt.Errorf("failed to pack calldata: %s", err.Error()))
-		//}
-
-		//_, err = k.CallEVM(ctx, common.Address(caller), &contract.Addr, nil, calldata)
-		//if err != nil {
-		//	panic(fmt.Errorf("failed to execute contract init: %s", err.Error()))
-		//}
 	}
 }
 
