@@ -58,17 +58,6 @@ func init() {
 			},
 		},
 		{
-			Addr: common.HexToAddress(EniPegETHAddr),
-			Code: WrappedTokenV2Bytecode,
-			Abi:  erc20ABI,
-			Args: InitArgs{
-				Name:   EniPegETHName,
-				Symbol: EniPegETHSymbol,
-				Supply: EniPegETHSupply,
-				Holder: common.HexToAddress(EniPegETHHolder),
-			},
-		},
-		{
 			Addr: common.HexToAddress(EniPegUSDCAddr),
 			Code: WrappedTokenV2Bytecode,
 			Abi:  erc20ABI,
@@ -88,6 +77,39 @@ func init() {
 				Symbol: EniPegBTCSymbol,
 				Supply: EniPegBTCSupply,
 				Holder: common.HexToAddress(EniPegBTCHolder),
+			},
+		},
+		{
+			Addr: common.HexToAddress(EniPegETHAddr),
+			Code: WrappedTokenV2Bytecode,
+			Abi:  erc20ABI,
+			Args: InitArgs{
+				Name:   EniPegETHName,
+				Symbol: EniPegETHSymbol,
+				Supply: EniPegETHSupply,
+				Holder: common.HexToAddress(EniPegETHHolder),
+			},
+		},
+		{
+			Addr: common.HexToAddress(EniPegBNBAddr),
+			Code: WrappedTokenV2Bytecode,
+			Abi:  erc20ABI,
+			Args: InitArgs{
+				Name:   EniPegBNBName,
+				Symbol: EniPegBNBSymbol,
+				Supply: EniPegBNBSupply,
+				Holder: common.HexToAddress(EniPegBNBHolder),
+			},
+		},
+		{
+			Addr: common.HexToAddress(EniPegSOLAddr),
+			Code: WrappedTokenV2Bytecode,
+			Abi:  erc20ABI,
+			Args: InitArgs{
+				Name:   EniPegSOLName,
+				Symbol: EniPegSOLSymbol,
+				Supply: EniPegSOLSupply,
+				Holder: common.HexToAddress(EniPegSOLHolder),
 			},
 		},
 		//{
