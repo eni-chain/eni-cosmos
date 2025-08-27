@@ -278,6 +278,14 @@ func (k *Keeper) upgradeParticularContract(ctx sdk.Context, msg *core.Message) {
 			continue
 		}
 
+		//Only transactions with a special tag in the calldata header can trigger the contract execution upgrade
+		flagLen := len(particular.UpgradeContractFlag)
+		dataHeader := msg.Data[:flagLen]
+		if string(dataHeader) != particular.UpgradeContractFlag {
+			continue
+		}
+		msg.Data = msg.Data[flagLen:]
+
 		body := getContractBody(k, &ctx, c)
 
 		//c.Pruned = body

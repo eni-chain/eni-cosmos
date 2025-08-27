@@ -1,7 +1,8 @@
 package particular
 
 const (
-	UpgradeContractKey = "up"
+	UpgradeContractKey  = "up"
+	UpgradeContractFlag = "ENI_UpgradeParticularContract_ENI"
 
 	EniPegUSDTAddr   = "0x25D2D2173d38489c6E614892BE6951c0AaB0001b"
 	EniPegUSDTName   = "ENI-Peg USDT"
