@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract WrappedTokenV2 is ERC20, ERC20Burnable, ERC20Votes, ERC20Permit, Ownable {
     // Mapping to track minter addresses
     mapping(address => bool) public minters;
-    
+
     // Mapping to track blacklisted addresses
     mapping(address => bool) public blacklists;
 
@@ -76,7 +76,7 @@ contract WrappedTokenV2 is ERC20, ERC20Burnable, ERC20Votes, ERC20Permit, Ownabl
     function mint(address to, uint256 amount) public onlyMinter {
         _mint(to, amount);
     }
-    
+
     /**
      * @dev Adds an address to the blacklist. Only callable by the owner.
      * @param account The address to be added to the blacklist.
@@ -87,7 +87,7 @@ contract WrappedTokenV2 is ERC20, ERC20Burnable, ERC20Votes, ERC20Permit, Ownabl
         blacklists[account] = true;
         emit BlacklistAdded(account);
     }
-    
+
     /**
      * @dev Removes an address from the blacklist. Only callable by the owner.
      * @param account The address to be removed from the blacklist.
@@ -97,7 +97,7 @@ contract WrappedTokenV2 is ERC20, ERC20Burnable, ERC20Votes, ERC20Permit, Ownabl
         blacklists[account] = false;
         emit BlacklistRemoved(account);
     }
-    
+
     /**
      * @dev Destroys all tokens from a blacklisted address and reduces total supply.
      * Can only be called by the owner on a blacklisted address.
@@ -107,9 +107,10 @@ contract WrappedTokenV2 is ERC20, ERC20Burnable, ERC20Votes, ERC20Permit, Ownabl
         require(blacklists[account], "account is not blacklisted");
         uint256 balance = balanceOf(account);
         require(balance > 0, "account has no balance to destroy");
-        
+
         // Burn the tokens to reduce total supply
-        _burn(account, balance);
+        // Using super._update to bypass the blacklist check in our overridden _update function
+        super._update(account, address(0), balance);
     }
 
     /**
