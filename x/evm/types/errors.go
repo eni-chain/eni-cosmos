@@ -12,6 +12,7 @@ import (
 var (
 	ErrInvalidSigner     = sdkerrors.Register(ModuleName, 1100, "expected gov account as only signer for proposal message")
 	ErrInvalidGasManager = sdkerrors.Register(ModuleName, 1102, "expected gas manager account as only signer for proposal message")
+	ErrBlackListsUpdate  = sdkerrors.Register(ModuleName, 1103, "update blacklists error")
 	ErrSample            = sdkerrors.Register(ModuleName, 1101, "sample error")
 	// ErrTxTooLarge defines an ABCI typed error where tx is too large.
 	ErrTxTooLarge = sdkerrors.Register(ModuleName, 21, "tx too large")

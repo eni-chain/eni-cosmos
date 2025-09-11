@@ -84,10 +84,12 @@ func GetTxCmd() *cobra.Command {
 	//cmd.AddCommand(NativeSendTxCmd())
 	//cmd.AddCommand(RegisterCwPointerCmd())
 	//cmd.AddCommand(RegisterEvmPointerCmd())
-	//cmd.AddCommand(NewAddERCNativePointerProposalTxCmd())
+	cmd.AddCommand(NewAddERCNativePointerProposalTxCmd())
 	//cmd.AddCommand(AssociateContractAddressCmd())
 	//cmd.AddCommand(NativeAssociateCmd())
 	cmd.AddCommand(NewUpdateParamsCmd())
+	cmd.AddCommand(NewAddBlacklistsCmd())
+	cmd.AddCommand(NewDelBlacklistsCmd())
 	return cmd
 }
 

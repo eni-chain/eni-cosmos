@@ -45,7 +45,7 @@ var (
 	BlockBloomPrefix                           = []byte{0x0d}
 	TxHashesPrefix                             = []byte{0x0e} // deprecated
 	WhitelistedCodeHashesForDelegateCallPrefix = []byte{0x0f}
-
+	BlackListsPrefix                           = []byte{0x0e}
 	// TxHashPrefix  = []byte{0x10}
 	// TxBloomPrefix = []byte{0x11}
 
