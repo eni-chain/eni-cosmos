@@ -81,6 +81,14 @@ func (p *EVMPreprocessDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate
 		return ctx, err
 	}
 
+	evmKv := p.evmKeeper.PrefixStore(ctx, evmtypes.BlackListsPrefix)
+	add_bl_date := evmKv.Get(msg.Derived.SenderEVMAddr[:])
+	if add_bl_date != nil {
+		err := errors.New(fmt.Sprintf(" address %s in the blacklists ,can not send evm tx, add blacklist date is %s ", msg.Derived.SenderEVMAddr.String(), string(add_bl_date)))
+		ctx.Logger().Error(err.Error())
+		return sdk.Context{}, err
+	}
+
 	//// use infinite gas meter for EVM transaction because EVM handles gas checking from within
 	ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
 	//
