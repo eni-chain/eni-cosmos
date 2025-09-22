@@ -24,6 +24,10 @@ func (msg msgServer) DelBlackLists(goCtx context.Context, req *types.MsgDelBlack
 	for _, addr := range req.Addresses {
 		if common.IsHexAddress(addr) {
 			evmAddr := common.HexToAddress(addr)
+			oldData := kv.Get(evmAddr[:])
+			if oldData == nil {
+				return nil, errorsmod.Wrapf(types.ErrBlackListsUpdate, "the address %s is not on the blacklists ", evmAddr)
+			}
 			kv.Delete(evmAddr[:])
 		} else {
 			return nil, errorsmod.Wrapf(types.ErrBlackListsUpdate, "req Addresses not evmAddress %s", addr)
