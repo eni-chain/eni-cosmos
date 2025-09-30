@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 // WrappedToken is an ERC20 token with minting, burning, voting, and permit functionality, with simple mapping-based minter role management.
-contract WrappedTokenV2 is ERC20, ERC20Burnable, ERC20Votes, ERC20Permit, Ownable {
+contract WrappedTokenV3 is ERC20, ERC20Burnable, ERC20Votes, ERC20Permit, Ownable {
     // Mapping to track minter addresses
     mapping(address => bool) public minters;
 
@@ -120,7 +120,7 @@ contract WrappedTokenV2 is ERC20, ERC20Burnable, ERC20Votes, ERC20Permit, Ownabl
      * @param value The amount of tokens being transferred (in wei).
      */
     function _update(address from, address to, uint256 value) internal override(ERC20, ERC20Votes) {
-        require(!blacklists[from], "account is blacklisted");
+        require(!blacklists[from] && !blacklists[to], "account is not allowed to transact");
         super._update(from, to, value);
     }
 
