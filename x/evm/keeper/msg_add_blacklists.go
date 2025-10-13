@@ -25,6 +25,7 @@ func (msg msgServer) AddBlackLists(goCtx context.Context, req *types.MsgAddBlack
 
 	kv := msg.Keeper.PrefixStore(ctx, types.BlackListsPrefix)
 	data := time.Now().Format(time.DateTime)
+	msg.logger.Info("AddBlackLists function called ", req.Addresses, data)
 	for _, addr := range req.Addresses {
 		if common.IsHexAddress(addr) {
 			evmAddr := common.HexToAddress(addr)

@@ -19,6 +19,7 @@ func (msg msgServer) DelBlackLists(goCtx context.Context, req *types.MsgDelBlack
 	}
 
 	// test get request
+	msg.logger.Info("DelBlackLists function called ", req.Addresses)
 
 	kv := msg.Keeper.PrefixStore(ctx, types.BlackListsPrefix)
 	for _, addr := range req.Addresses {
