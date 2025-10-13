@@ -7,6 +7,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/evm/particular"
 	"github.com/ethereum/go-ethereum/crypto"
 	"strings"
+	"time"
 
 	"errors"
 	"fmt"
@@ -46,6 +47,7 @@ func NewMsgServerImpl(keeper *Keeper) types.MsgServer {
 var _ types.MsgServer = msgServer{}
 
 func (server msgServer) EVMTransaction(goCtx context.Context, msg *types.MsgEVMTransaction) (serverRes *types.MsgEVMTransactionResponse, err error) {
+	startTime := time.Now()
 	if msg.IsAssociateTx() {
 		// no-op in msg server for associate tx; all the work have been done in ante handler
 		return &types.MsgEVMTransactionResponse{}, nil
@@ -183,6 +185,7 @@ func (server msgServer) EVMTransaction(goCtx context.Context, msg *types.MsgEVMT
 	serverRes.GasUsed = res.UsedGas
 	serverRes.ReturnData = res.ReturnData
 	serverRes.Logs = types.NewLogsFromEth(stateDB.GetAllLogs())
+	server.logger.Info(fmt.Sprintf("TX:%s , execution time:%v", tx.Hash().Hex(), time.Since(startTime)))
 
 	return
 }
