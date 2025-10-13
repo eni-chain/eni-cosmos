@@ -19,8 +19,7 @@ func (msg msgServer) DelBlackLists(goCtx context.Context, req *types.MsgDelBlack
 	}
 
 	// test get request
-	msg.logger.Info("DelBlackLists function called ", req.Addresses)
-
+	msg.logger.Info("DelBlackLists function called ", "address ")
 	kv := msg.Keeper.PrefixStore(ctx, types.BlackListsPrefix)
 	for _, addr := range req.Addresses {
 		if common.IsHexAddress(addr) {
