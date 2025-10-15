@@ -88,7 +88,7 @@ func (p *EVMPreprocessDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate
 		evmKv := p.evmKeeper.PrefixStore(ctx, evmtypes.BlackListsPrefix)
 		add_bl_date := evmKv.Get(msg.Derived.SenderEVMAddr[:])
 		if add_bl_date != nil {
-			err := errors.New(fmt.Sprintf(" address %s in the blacklists ,can not send evm tx, add blacklist date is %s ", msg.Derived.SenderEVMAddr.String(), string(add_bl_date)))
+			err := errors.New(fmt.Sprintf(" address %s in the blacklists ,can not send evm tx", msg.Derived.SenderEVMAddr.String()))
 			ctx.Logger().Error(err.Error())
 			return sdk.Context{}, err
 		}

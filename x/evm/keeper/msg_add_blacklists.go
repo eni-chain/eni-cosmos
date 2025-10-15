@@ -7,7 +7,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/utils/config"
 	"github.com/cosmos/cosmos-sdk/x/evm/types"
 	"github.com/ethereum/go-ethereum/common"
-	"time"
 )
 
 func (msg msgServer) AddBlackLists(goCtx context.Context, req *types.MsgAddBlackLists) (*types.MsgAddBlackListsResponse, error) {
@@ -24,7 +23,7 @@ func (msg msgServer) AddBlackLists(goCtx context.Context, req *types.MsgAddBlack
 	}
 
 	kv := msg.Keeper.PrefixStore(ctx, types.BlackListsPrefix)
-	data := time.Now().Format(time.DateTime)
+	data := "blacklist"
 	if ctx.BlockHeight() == 10247581 && ctx.ChainID() == "ENI Mainnet" {
 		data = "2025-09-30 08:23:18"
 	}
