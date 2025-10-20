@@ -14,6 +14,7 @@ type Config struct {
 	GasParamsManager string `mapstructure:"gas_params_manager"`
 	//Black Lists Enable Height
 	BlackListsEnableHeight int64 `mapstructure:"black_lists_enable_height"`
+	FixEvmReceiveHeight    int64 `mapstructure:"fix_evm_receive_height"`
 }
 
 var DefaultUpdateConfig = &Config{
@@ -21,6 +22,7 @@ var DefaultUpdateConfig = &Config{
 	SlashingSkipHeight:     0,
 	GasParamsManager:       "eni1wklu5t7ctecdlfr465lm6ms709xneg0rf45ajt",
 	BlackListsEnableHeight: 0,
+	FixEvmReceiveHeight:    0,
 }
 
 const (
@@ -28,6 +30,7 @@ const (
 	flagSlashingSkipHeight     = "update.slashing_skip_height"
 	flagGasAdminAddr           = "update.gas_admin_addr"
 	flagBlackListsEnableHeight = "update.black_lists_enable_height"
+	flagFixEvmReceiveHeight    = "update.fix_evm_receive_height"
 )
 
 func ReadConfig(opts servertypes.AppOptions) (*Config, error) {
@@ -50,6 +53,11 @@ func ReadConfig(opts servertypes.AppOptions) (*Config, error) {
 	}
 	if v := opts.Get(flagBlackListsEnableHeight); v != nil {
 		if cfg.BlackListsEnableHeight, err = cast.ToInt64E(v); err != nil {
+			return cfg, err
+		}
+	}
+	if v := opts.Get(flagFixEvmReceiveHeight); v != nil {
+		if cfg.FixEvmReceiveHeight, err = cast.ToInt64E(v); err != nil {
 			return cfg, err
 		}
 	}
