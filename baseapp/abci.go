@@ -835,7 +835,7 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	// NOTE: Not all raw transactions may adhere to the sdk.Tx interface, e.g.
 	// vote extensions, so skip those.
 	startExecTx := time.Now()
-	app.logger.Info("Time ExecTxs", "block height", req.Height, "start exec tx", startExecTx)
+	app.logger.Info("Time ExecTxs", "block height", req.Height, "start exec tx", startExecTx.Format(time.StampMicro))
 	txResults, msgs := app.execTx(app.finalizeBlockState.Context(), req.Txs, req.SimpleDag)
 	endExecTx := time.Now()
 	spendTime := endExecTx.Sub(startExecTx)
