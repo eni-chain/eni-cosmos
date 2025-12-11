@@ -388,15 +388,15 @@ func (app *BaseApp) PrepareProposal(req *abci.RequestPrepareProposal) (resp *abc
 	if err != nil {
 		return nil, err
 	}
-	app.logger.Info("build simple group", "spend time", time.Since(buildGroupStart).Milliseconds(), "txs", len(simpleGroup.txs))
+	app.logger.Info("build simple group", "spend time", time.Since(buildGroupStart).String(), "txs", len(simpleGroup.txs))
 	req.Txs = simpleGroup.GetTxs()
 	req.SimpleDag = simpleGroup.GetDag()
 	//log spend time
 	start := time.Now()
-	app.logger.Debug("Time PrepareProposal", "block height", req.Height, "start time", start)
+	app.logger.Debug("Time PrepareProposal", "block height", req.Height, "start time", start.Format("Jan _2 15:04:05.000000"))
 	defer func() {
 		end := time.Now()
-		app.logger.Info("Time PrepareProposal", "block height", req.Height, "end time", end, "spend time", end.Sub(start).Milliseconds())
+		app.logger.Info("Time PrepareProposal", "block height", req.Height, "end time", end.Format("Jan _2 15:04:05.000000"), "spend time", end.Sub(start).String())
 	}()
 	// Always reset state given that PrepareProposal can timeout and be called
 	// again in a subsequent round.
@@ -484,7 +484,8 @@ func (app *BaseApp) ProcessProposal(req *abci.RequestProcessProposal) (resp *abc
 	app.logger.Debug("Time ProcessProposal", "block height", req.Height, "start time", start)
 	defer func() {
 		end := time.Now()
-		app.logger.Info("Time ProcessProposal", "block height", req.Height, "end time", end, "spend time", end.Sub(start).Milliseconds())
+		app.logger.Info("Time ProcessProposal", "block height", req.Height,
+			"end time", end.Format("Jan _2 15:04:05.000000"), "spend time", end.Sub(start).String())
 	}()
 	// CometBFT must never call ProcessProposal with a height of 0.
 	// Ref: https://github.com/cometbft/cometbft/blob/059798a4f5b0c9f52aa8655fa619054a0154088c/spec/core/state.md?plain=1#L37-L38
@@ -837,10 +838,10 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	app.logger.Info("Time ExecTxs", "block height", req.Height, "start exec tx", startExecTx)
 	txResults, msgs := app.execTx(app.finalizeBlockState.Context(), req.Txs, req.SimpleDag)
 	endExecTx := time.Now()
-	spendTime := endExecTx.Sub(startExecTx).Milliseconds()
-	if spendTime > 0 {
+	spendTime := endExecTx.Sub(startExecTx)
+	if spendTime.Milliseconds() > 0 {
 		app.logger.Info("Time ExecTxs", "block height", req.Height, "end exec tx", endExecTx.Format(time.StampMicro),
-			"spend time", spendTime, "TPS", 1000*len(req.Txs)/int(spendTime), "now time", time.Now().Format(time.StampMicro))
+			"spend time", spendTime.String(), "TPS", 1000*len(req.Txs)/int(spendTime.Milliseconds()), "now time", time.Now().Format(time.StampMicro))
 	}
 	if app.finalizeBlockState.ms.TracingEnabled() {
 		app.finalizeBlockState.ms = app.finalizeBlockState.ms.SetTracingContext(nil).(storetypes.CacheMultiStore)
@@ -861,9 +862,9 @@ func (app *BaseApp) internalFinalizeBlock(ctx context.Context, req *abci.Request
 	startEndBlock := time.Now()
 	endBlock, err := app.endBlock(app.finalizeBlockState.Context())
 	endEndBlock := time.Now()
-	spendTime = endEndBlock.Sub(startEndBlock).Milliseconds()
-	if spendTime > 0 {
-		app.logger.Info("Time EndBlock", "block height", req.Height, "spend time", spendTime)
+	spendTime = endEndBlock.Sub(startEndBlock)
+	if spendTime.Milliseconds() > 0 {
+		app.logger.Info("Time EndBlock", "block height", req.Height, "spend time", spendTime.String())
 	}
 	if err != nil {
 		return nil, err
@@ -904,7 +905,7 @@ func (app *BaseApp) FinalizeBlock(req *abci.RequestFinalizeBlock) (res *abci.Res
 	app.logger.Debug("Time FinalizeBlock", "block height", req.Height, "start time", start.Format(time.StampMicro))
 	defer func() {
 		end := time.Now()
-		app.logger.Info("Time FinalizeBlock", "block height", req.Height, "end time", end.Format(time.StampMicro), "spend time", end.Sub(start).Milliseconds())
+		app.logger.Info("Time FinalizeBlock", "block height", req.Height, "end time", end.Format(time.StampMicro), "spend time", end.Sub(start).String())
 	}()
 
 	defer func() {
@@ -979,7 +980,7 @@ func (app *BaseApp) Commit() (*abci.ResponseCommit, error) {
 	app.logger.Debug("Time Commit", "start time", start)
 	defer func() {
 		end := time.Now()
-		app.logger.Info("Time Commit", "end time", end, "spend time", end.Sub(start).Milliseconds())
+		app.logger.Info("Time Commit", "end time", end.Format("Jan _2 15:04:05.000000"), "spend time", end.Sub(start).String())
 	}()
 
 	header := app.finalizeBlockState.Context().BlockHeader()

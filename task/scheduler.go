@@ -350,7 +350,7 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs *sdk.DeliverTxBatchRequest)
 	start(workerCtx, s.validateCh, workers)
 
 	toExecute := tasks
-	execStart := time.Now()
+	validStart := time.Now()
 	for !allValidated(tasks) {
 		// if the max incarnation >= x, we should revert to synchronous
 		if iterations >= maximumIterations {
@@ -375,7 +375,7 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs *sdk.DeliverTxBatchRequest)
 			}
 		}
 
-		s.loger.Info("execute all", "spend time ", time.Since(execStart).Milliseconds(), "exec txs len", len(toExecute), "iterations count", iterations)
+		s.loger.Info("execute all", "spend time ", time.Since(execStart).String(), "exec txs len", len(toExecute), "iterations count", iterations)
 
 		validateStart := time.Now()
 		// validate returns any that should be re-executed
@@ -385,19 +385,19 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs *sdk.DeliverTxBatchRequest)
 		if err != nil {
 			return nil, err
 		}
-		s.loger.Info("validate all", "spend time ", time.Since(validateStart).Milliseconds(), "validate txs len", len(toExecute), "iterations count", iterations)
+		s.loger.Info("validate all", "spend time ", time.Since(validateStart).String(), "validate txs len", len(toExecute), "iterations count", iterations)
 		// these are retries which apply to metrics
 		s.metrics.retries += len(toExecute)
 		iterations++
 	}
-	s.loger.Info("execute all and validate all", "spend time ", time.Since(execStart).Milliseconds(), "iterations count", iterations)
+	s.loger.Info("execute all and validate all", "spend time ", time.Since(validStart).String(), "iterations count", iterations)
 
 	writeStoreStart := time.Now()
 	for _, mv := range s.multiVersionStores {
 		mv.WriteLatestToStore()
 	}
 	s.metrics.maxIncarnation = s.maxIncarnation
-	s.loger.Info("write latest to store", "spend time ", time.Since(writeStoreStart).Milliseconds(), "write len", len(s.multiVersionStores))
+	s.loger.Info("write latest to store", "spend time ", time.Since(writeStoreStart).String(), "write len", len(s.multiVersionStores))
 
 	ctx.Logger().Info("occ scheduler", "height", ctx.BlockHeight(), "txs", len(tasks), "latency_ms", time.Since(startTime).Milliseconds(), "retries", s.metrics.retries, "maxIncarnation", s.maxIncarnation, "iterations", iterations, "sync", s.synchronous, "workers", s.workers)
 
